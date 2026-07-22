@@ -94,15 +94,21 @@ jobs:
 
       - name: Write CI mozconfig
         run: |
+          # Source the project's own NorthGate config (which sources
+          # base-browser), then add what a local/CI build requires. Base Browser
+          # mandates --with-base-browser-version, so a bare mozconfig fails at
+          # configure.
           cat > mozconfig <<'EOF'
-          ac_add_options --enable-application=browser
-          ac_add_options --enable-optimize
-          ac_add_options --disable-debug
-          ac_add_options --disable-tests
-          ac_add_options --enable-strip
-          # Point this at your NorthGate branding, e.g.:
-          # ac_add_options --with-branding=browser/branding/mb-release
-          mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-build
+          . $topsrcdir/browser/config/mozconfigs/northgate-browser
+
+          ac_add_options --with-base-browser-version=dev-build
+          ac_add_options --enable-update-channel=default
+          ac_add_options --with-branding=browser/branding/mb-alpha
+          ac_add_options --disable-minify
+
+          # base-browser enables cross-LTO, which is too heavy for hosted
+          # runners; disable it so CI builds fit within time/memory limits.
+          ac_add_options --disable-lto
           EOF
           echo "MOZCONFIG=${{ github.workspace }}/src/mozconfig" >> "$GITHUB_ENV"
 
@@ -115,10 +121,13 @@ jobs:
       - name: Collect artifacts
         working-directory: .
         run: |
+          # base-browser's objdir is obj-<config-guess>, so glob for it.
           mkdir -p dist-out
-          find src/obj-build/dist -maxdepth 1 -type f \
-            \( -name '*.tar.*' -o -name '*.zip' -o -name '*.dmg' -o -name '*.exe' \) \
-            -exec cp {} dist-out/ \; || true
+          shopt -s nullglob
+          for f in src/obj-*/dist/*.tar.* src/obj-*/dist/*.zip \
+                   src/obj-*/dist/*.dmg src/obj-*/dist/*.exe; do
+            cp "$f" dist-out/
+          done
           ls -la dist-out
 
       - name: Upload build artifact
