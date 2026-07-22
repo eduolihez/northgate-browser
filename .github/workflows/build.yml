@@ -88,6 +88,18 @@ jobs:
           restore-keys: |
             mozbuild-${{ runner.os }}-
 
+      # Firefox/NorthGate's mach requires MozillaBuild (MSYS + build tools) on
+      # Windows; the hosted runner does not ship it, so mach aborts at startup.
+      - name: Install MozillaBuild (Windows)
+        if: runner.os == 'Windows'
+        working-directory: .
+        shell: pwsh
+        run: |
+          $url = "https://ftp.mozilla.org/pub/mozilla/libraries/win32/MozillaBuildSetup-Latest.exe"
+          Invoke-WebRequest -Uri $url -OutFile "$env:RUNNER_TEMP\mozbuildsetup.exe"
+          Start-Process -FilePath "$env:RUNNER_TEMP\mozbuildsetup.exe" -ArgumentList "/S" -Wait
+          "MOZILLABUILD=C:\mozilla-build" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
       - name: Bootstrap build dependencies
         # mach auto-detects the non-interactive CI shell (no TTY), so no prompt.
         run: python mach bootstrap --application-choice browser
