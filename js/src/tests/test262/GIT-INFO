@@ -1,0 +1,7 @@
+commit a6f387de323eb9ae56448bdb71c5d315df631ce4
+Author: Ioanna M Dimitriou H <idimitriou@igalia.com>
+Date:   Tue Mar 17 22:33:58 2026 +0100
+
+    [Temporal] Add function as acceptable undefined options object (#4990)
+    
+    * [Temporal] Add function as acceptable undefined options object

@@ -1,0 +1,16 @@
+JAR_MANIFESTS += ["jar.mn"]
+
+XPCOM_MANIFESTS += [
+    "components.conf",
+]
+
+MOZ_SRC_FILES += [
+    "AboutNorthGateBrowserChild.sys.mjs",
+    "AboutNorthGateBrowserParent.sys.mjs",
+    "AboutNorthGateChild.sys.mjs",
+    "AboutNorthGateParent.sys.mjs",
+    "NorthGateClassifier.sys.mjs",
+    "NorthGateGuardChild.sys.mjs",
+    "NorthGateGuardParent.sys.mjs",
+    "NorthGateNavGuard.sys.mjs",
+]

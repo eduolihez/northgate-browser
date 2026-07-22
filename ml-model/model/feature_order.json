@@ -1,0 +1,24 @@
+{
+  "features": [
+    "url_length",
+    "hostname_length",
+    "path_length",
+    "query_length",
+    "url_entropy",
+    "hostname_entropy",
+    "has_ip",
+    "num_subdomains",
+    "num_dots",
+    "num_hyphens",
+    "num_digits",
+    "num_special_chars",
+    "digit_ratio",
+    "has_at_symbol",
+    "is_https",
+    "is_shortened",
+    "num_suspicious_keywords",
+    "has_suspicious_keyword"
+  ],
+  "block_threshold": 0.2429,
+  "model": "random_forest"
+}

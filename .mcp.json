@@ -1,0 +1,21 @@
+{
+  "mcpServers": {
+    "moz": {
+      "type": "http",
+      "url": "https://mcp-dev.moz.tools/mcp"
+    },
+    "firefox-devtools": {
+      "type": "stdio",
+      "command": "./mach",
+      "args": [
+        "--quiet",
+        "npx",
+        "@mozilla/firefox-devtools-mcp-moz",
+        "--pref",
+        "browser.ml.enable=true",
+        "--enable-scripting",
+        "--enable-privileged-context"
+      ]
+    }
+  }
+}

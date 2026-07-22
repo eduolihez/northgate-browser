@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+  <head>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src chrome:; object-src 'none'"
+    />
+    <title data-l10n-id="ngate-page-title"></title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="chrome://branding/content/icon32.png"
+    />
+    <link rel="stylesheet" href="chrome://global/skin/in-content/common.css" />
+    <link
+      rel="stylesheet"
+      href="chrome://browser/content/northgate-browser/aboutNorthGate.css"
+    />
+    <link rel="localization" href="branding/brand.ftl" />
+    <link rel="localization" href="browser/aboutNorthGate.ftl" />
+
+    <script src="chrome://browser/content/northgate-browser/aboutNorthGate.js"></script>
+  </head>
+  <body>
+    <main class="ngate-page">
+      <header class="ngate-header">
+        <img
+          class="ngate-logo"
+          srcset="
+            chrome://branding/content/icon64.png  1x,
+            chrome://branding/content/icon128.png 2x
+          "
+          alt=""
+        />
+        <div>
+          <h1 data-l10n-id="ngate-title"></h1>
+          <p class="ngate-subtitle" data-l10n-id="ngate-subtitle"></p>
+        </div>
+      </header>
+
+      <section class="ngate-card ngate-sitebar">
+        <div class="ngate-site-info">
+          <span class="ngate-site-label" data-l10n-id="ngate-current-site"></span>
+          <span id="ngate-site-host" class="ngate-site-host"></span>
+          <span id="ngate-site-scheme" class="ngate-badge" hidden></span>
+        </div>
+        <button
+          id="ngate-refresh"
+          class="ngate-icon-button"
+          data-l10n-id="ngate-refresh"
+        ></button>
+      </section>
+
+      <p
+        id="ngate-empty"
+        class="ngate-empty"
+        data-l10n-id="ngate-empty"
+        hidden
+      ></p>
+
+      <div id="ngate-grid" class="ngate-grid">
+        <section class="ngate-card ngate-score-card">
+          <h2 data-l10n-id="ngate-score-heading"></h2>
+          <div class="ngate-score">
+            <span id="ngate-score-value" class="ngate-score-value">--</span>
+            <span
+              id="ngate-score-grade"
+              class="ngate-score-grade"
+              aria-hidden="true"
+            ></span>
+          </div>
+          <p id="ngate-score-label" class="ngate-score-label"></p>
+          <div
+            class="ngate-meter"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            id="ngate-score-meter"
+          >
+            <div id="ngate-score-bar" class="ngate-meter-fill"></div>
+          </div>
+        </section>
+
+        <section class="ngate-card ngate-trackers-card">
+          <h2 data-l10n-id="ngate-trackers-heading"></h2>
+          <p class="ngate-big-number">
+            <span id="ngate-trackers-total">0</span>
+          </p>
+          <p
+            class="ngate-muted"
+            data-l10n-id="ngate-trackers-sublabel"
+          ></p>
+          <ul id="ngate-trackers-breakdown" class="ngate-breakdown"></ul>
+        </section>
+
+        <section class="ngate-card ngate-classifier-card">
+          <h2 data-l10n-id="ngate-classifier-heading"></h2>
+          <p
+            id="ngate-verdict"
+            class="ngate-verdict"
+            data-verdict="safe"
+          ></p>
+          <p id="ngate-verdict-explain" class="ngate-verdict-explain"></p>
+          <div
+            class="ngate-meter"
+            role="progressbar"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            id="ngate-risk-meter"
+          >
+            <div id="ngate-risk-bar" class="ngate-meter-fill"></div>
+          </div>
+          <p class="ngate-muted ngate-risk-caption">
+            <span data-l10n-id="ngate-risk-caption"></span>
+            <span id="ngate-risk-pct"></span>
+          </p>
+          <ul id="ngate-reasons" class="ngate-reasons"></ul>
+        </section>
+      </div>
+
+      <section class="ngate-card ngate-alerts-card">
+        <div class="ngate-alerts-head">
+          <h2 data-l10n-id="ngate-alerts-heading"></h2>
+          <button
+            id="ngate-clear"
+            class="ngate-ghost-button"
+            data-l10n-id="ngate-clear"
+          ></button>
+        </div>
+        <p
+          id="ngate-alerts-empty"
+          class="ngate-muted"
+          data-l10n-id="ngate-alerts-empty"
+        ></p>
+        <ul id="ngate-alerts-list" class="ngate-alert-list"></ul>
+      </section>
+    </main>
+  </body>
+</html>

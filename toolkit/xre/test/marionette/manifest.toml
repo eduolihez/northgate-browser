@@ -1,0 +1,17 @@
+[DEFAULT]
+subsuite = "integration"
+tags = "os_integration"
+
+["include:xdg_config/manifest.toml"]
+
+["test_exitcode.py"]
+
+["test_fission_autostart.py"]
+
+["test_win32k_enrollment.py"]
+run-if = [
+  "os == 'win'",
+]
+skip-if = [
+  "ccov", # Bug 1757102
+]

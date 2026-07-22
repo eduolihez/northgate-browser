@@ -1,0 +1,12 @@
+NorthGate Browser Notice
+========================
+
+This project is a fork of Mullvad Browser, which itself is built on top of Firefox ESR and Tor Browser hardening.
+
+We gratefully acknowledge the contributions and work of:
+- The Mozilla Foundation and its contributors (Firefox).
+- The Tor Project and its contributors (Tor Browser, Base Browser).
+- Mullvad VPN AB and its contributors (Mullvad Browser).
+
+This codebase is subject to the terms of the Mozilla Public License, v. 2.0.
+Trademarks of Mozilla, Tor Project, and Mullvad VPN AB remain the property of their respective owners.

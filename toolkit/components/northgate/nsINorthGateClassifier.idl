@@ -1,0 +1,31 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * On-device phishing URL classifier backed by an embedded ONNX model.
+ *
+ * The implementation (Rust, using the onnxruntime `ort` crate) performs all
+ * feature extraction and inference locally and makes NO network requests. The
+ * model is compiled into the binary, so scoring is available offline.
+ */
+[scriptable, uuid(a7d2e4c9-1b3f-4a58-9c2d-6e7f8a0b1c2d)]
+interface nsINorthGateClassifier : nsISupports {
+  /**
+   * Estimated phishing probability, in the range [0, 1], for an absolute URL.
+   * Fast and synchronous; safe to call on the main thread from the navigation
+   * guard. Returns NS_ERROR_FAILURE if the URL cannot be parsed or the model
+   * is unavailable.
+   *
+   * @param url The absolute URL to score (http/https).
+   */
+  double scoreURL(in AUTF8String url);
+
+  /**
+   * The phishing probability at or above which a top-level navigation should
+   * be blocked with a warning. Baked into the model bundle at training time.
+   */
+  readonly attribute double blockThreshold;
+};

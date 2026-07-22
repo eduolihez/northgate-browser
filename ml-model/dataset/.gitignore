@@ -1,0 +1,6 @@
+# Raw feed downloads and caches are reproducible; keep them out of git.
+data/raw/
+data/whois_cache.json
+artifacts/
+__pycache__/
+*.pyc

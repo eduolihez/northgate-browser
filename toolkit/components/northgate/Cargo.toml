@@ -1,0 +1,27 @@
+[package]
+name = "northgate_classifier"
+version = "0.1.0"
+authors = ["The NorthGate Project"]
+edition = "2021"
+license = "MPL-2.0"
+description = "On-device ONNX phishing URL classifier exposed as an XPCOM service."
+
+[dependencies]
+# XPCOM plumbing (same versions the rest of the tree pins).
+xpcom = { path = "../../../xpcom/rust/xpcom" }
+nserror = { path = "../../../xpcom/rust/nserror" }
+nsstring = { path = "../../../xpcom/rust/nsstring" }
+
+# ONNX Runtime bindings. `load-dynamic` is off so the runtime is linked
+# statically and the model runs fully offline; `ort` performs no network I/O.
+ort = { version = "2.0.0-rc.10", default-features = false, features = [
+    "ndarray",
+] }
+ndarray = "0.16"
+
+# URL parsing and offline public-suffix handling for feature extraction.
+url = "2.5"
+psl = "2"
+
+[lib]
+path = "src/lib.rs"

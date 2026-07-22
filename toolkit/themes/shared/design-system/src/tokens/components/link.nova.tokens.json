@@ -1,0 +1,28 @@
+{
+  "color": {
+    "@base": {
+      "value": {
+        "default": "{color.accent.primary.@base}",
+        "forcedColors": "LinkText"
+      }
+    },
+    "hover": {
+      "value": {
+        "default": "{color.accent.primary.hover}",
+        "forcedColors": "LinkText"
+      }
+    },
+    "active": {
+      "value": {
+        "default": "{color.accent.primary.active}",
+        "forcedColors": "ActiveText"
+      }
+    },
+    "visited": {
+      "value": {
+        "default": "{link.color.@base}",
+        "forcedColors": "VisitedText"
+      }
+    }
+  }
+}

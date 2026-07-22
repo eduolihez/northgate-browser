@@ -1,0 +1,117 @@
+:root {
+  --ngate-danger: var(--color-red-60);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --ngate-danger: var(--color-red-40);
+  }
+}
+
+body {
+  margin: 0;
+}
+
+.ngate-blocked {
+  max-width: 40em;
+  margin-inline: auto;
+  padding: var(--space-xxlarge) var(--space-large);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-medium);
+}
+
+.ngate-blocked-icon {
+  width: 48px;
+  height: 48px;
+  -moz-context-properties: fill;
+  fill: var(--ngate-danger);
+}
+
+.ngate-blocked h1 {
+  margin: 0;
+  font-size: var(--font-size-xlarge);
+}
+
+.ngate-blocked-lead {
+  margin: 0;
+  color: var(--text-color-deemphasized);
+}
+
+.ngate-blocked-detail {
+  align-self: stretch;
+  margin-block: var(--space-medium);
+  padding: var(--space-medium) var(--space-large);
+  background-color: var(--in-content-box-background);
+  border: var(--border-width) solid var(--in-content-border-color);
+  border-radius: var(--border-radius-medium);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-small);
+}
+
+.ngate-blocked-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-medium);
+}
+
+.ngate-blocked-key {
+  color: var(--text-color-deemphasized);
+}
+
+.ngate-blocked-host {
+  font-weight: var(--font-weight-bold);
+  overflow-wrap: anywhere;
+  text-align: end;
+}
+
+.ngate-blocked-risk {
+  font-weight: var(--font-weight-bold);
+  color: var(--ngate-danger);
+}
+
+.ngate-blocked-explain {
+  margin: 0;
+  color: var(--text-color-deemphasized);
+  font-size: var(--font-size-small);
+}
+
+.ngate-blocked-actions {
+  margin-block-start: var(--space-large);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-medium);
+}
+
+.ngate-blocked-primary,
+.ngate-blocked-danger {
+  appearance: none;
+  border-radius: var(--border-radius-small);
+  padding: var(--space-small) var(--space-xlarge);
+  cursor: pointer;
+  border: var(--border-width) solid transparent;
+  font-weight: var(--font-weight-bold);
+}
+
+.ngate-blocked-primary {
+  background-color: var(--color-accent-primary, var(--in-content-primary-button-background));
+  color: var(--in-content-primary-button-text-color, white);
+}
+
+.ngate-blocked-primary:hover {
+  background-color: var(--in-content-primary-button-background-hover);
+}
+
+.ngate-blocked-danger {
+  background-color: transparent;
+  border-color: var(--in-content-border-color);
+  color: var(--text-color-deemphasized);
+}
+
+.ngate-blocked-danger:hover {
+  background-color: var(--in-content-button-background-hover);
+}

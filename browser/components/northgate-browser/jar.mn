@@ -1,0 +1,11 @@
+browser.jar:
+  content/browser/northgate-browser/aboutNorthGate.js             (content/aboutNorthGate.js)
+  content/browser/northgate-browser/aboutNorthGate.html           (content/aboutNorthGate.html)
+  content/browser/northgate-browser/aboutNorthGate.css            (content/aboutNorthGate.css)
+  content/browser/northgate-browser/aboutNorthGateBlocked.js      (content/aboutNorthGateBlocked.js)
+  content/browser/northgate-browser/aboutNorthGateBlocked.html    (content/aboutNorthGateBlocked.html)
+  content/browser/northgate-browser/aboutNorthGateBlocked.css     (content/aboutNorthGateBlocked.css)
+  content/browser/northgate-browser/aboutNorthGateBrowser.js      (content/aboutNorthGateBrowser.js)
+  content/browser/northgate-browser/aboutNorthGateBrowser.html    (content/aboutNorthGateBrowser.html)
+  content/browser/northgate-browser/aboutNorthGateBrowser.css     (content/aboutNorthGateBrowser.css)
+  content/browser/northgate-browser/2728-sparkles.svg           (content/2728-sparkles.svg)
