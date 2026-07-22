@@ -1,0 +1,68 @@
+<!doctype html>
+<html>
+  <head>
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src chrome:; object-src 'none'"
+    />
+    <title data-l10n-id="ngate-blocked-title"></title>
+    <link
+      rel="icon"
+      type="image/png"
+      href="chrome://branding/content/icon32.png"
+    />
+    <link rel="stylesheet" href="chrome://global/skin/in-content/common.css" />
+    <link
+      rel="stylesheet"
+      href="chrome://browser/content/northgate-browser/aboutNorthGateBlocked.css"
+    />
+    <link rel="localization" href="branding/brand.ftl" />
+    <link rel="localization" href="browser/aboutNorthGateBlocked.ftl" />
+
+    <script src="chrome://browser/content/northgate-browser/aboutNorthGateBlocked.js"></script>
+  </head>
+  <body>
+    <main class="ngate-blocked">
+      <img
+        class="ngate-blocked-icon"
+        src="chrome://global/skin/icons/warning.svg"
+        alt=""
+      />
+      <h1 data-l10n-id="ngate-blocked-heading"></h1>
+      <p class="ngate-blocked-lead" data-l10n-id="ngate-blocked-lead"></p>
+
+      <div class="ngate-blocked-detail">
+        <div class="ngate-blocked-row">
+          <span
+            class="ngate-blocked-key"
+            data-l10n-id="ngate-blocked-site-label"
+          ></span>
+          <span id="ngate-blocked-host" class="ngate-blocked-host"></span>
+        </div>
+        <div class="ngate-blocked-row">
+          <span
+            class="ngate-blocked-key"
+            data-l10n-id="ngate-blocked-risk-label"
+          ></span>
+          <span id="ngate-blocked-risk" class="ngate-blocked-risk"></span>
+        </div>
+      </div>
+
+      <p class="ngate-blocked-explain" data-l10n-id="ngate-blocked-explain"></p>
+
+      <div class="ngate-blocked-actions">
+        <button
+          id="ngate-blocked-back"
+          class="ngate-blocked-primary"
+          data-l10n-id="ngate-blocked-back"
+          autofocus
+        ></button>
+        <button
+          id="ngate-blocked-proceed"
+          class="ngate-blocked-danger"
+          data-l10n-id="ngate-blocked-proceed"
+        ></button>
+      </div>
+    </main>
+  </body>
+</html>
