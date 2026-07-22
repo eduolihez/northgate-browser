@@ -5,14 +5,13 @@
 #
 # The browser source lives in `src/`, so every mach command runs there.
 #
-# IMPORTANT — read before relying on this:
-#   * Building Firefox/NorthGate is heavy: tens of GB of disk, multi-GB RAM,
-#     and typically 1-3 h. GitHub-hosted runners are tight on disk (~14 GB) and
-#     cap jobs at 6 h, so a large or self-hosted runner is strongly recommended.
-#   * Windows especially usually needs the MozillaBuild environment; the vanilla
-#     runner here is best-effort and may require extra setup to complete.
-#   * Private-repo minutes are billed with multipliers (Windows 2x, macOS 10x) —
-#     enable only the platforms you actually need to avoid burning your quota.
+# IMPORTANT — resource reality:
+#   * A full Firefox/NorthGate build needs tens of GB of disk, multi-GB RAM and
+#     1-3 h. GitHub-hosted runners are tight on disk, so the reclaim step below
+#     is required. Linux is the most likely to complete on the free tier; macOS
+#     runners are disk-constrained and Windows may need extra toolchain setup.
+#     For reliable full builds, use a larger or self-hosted runner.
+#   * Private-repo minutes bill with multipliers (Windows 2x, macOS 10x).
 #   * Point MOZCONFIG at your NorthGate branding mozconfig before shipping.
 
 name: Build NorthGate
@@ -52,6 +51,7 @@ jobs:
           - name: macos
             runner: macos-latest
             artifact: northgate-macos
+
     defaults:
       run:
         working-directory: src
@@ -61,10 +61,12 @@ jobs:
         if: runner.os == 'Linux'
         working-directory: .
         run: |
-          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/lib/android \
-            /usr/local/.ghcup "$AGENT_TOOLSDIRECTORY" || true
+          sudo rm -rf /usr/share/dotnet /opt/ghc /usr/local/.ghcup \
+            /usr/local/lib/android /usr/local/share/boost /usr/local/share/powershell \
+            /usr/share/swift "$AGENT_TOOLSDIRECTORY" || true
+          sudo docker image prune --all --force || true
           sudo apt-get clean
-          df -h
+          df -h /
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -76,8 +78,19 @@ jobs:
         with:
           python-version: "3.11"
 
+      # Cache the mozbuild toolchain (clang, rust, etc.) fetched by bootstrap so
+      # reruns skip the multi-GB download.
+      - name: Cache mozbuild toolchain
+        uses: actions/cache@v4
+        with:
+          path: ~/.mozbuild
+          key: mozbuild-${{ runner.os }}-${{ hashFiles('src/python/mozboot/**') }}
+          restore-keys: |
+            mozbuild-${{ runner.os }}-
+
       - name: Bootstrap build dependencies
-        run: python mach --no-interactive bootstrap --application-choice browser
+        # mach auto-detects the non-interactive CI shell (no TTY), so no prompt.
+        run: python mach bootstrap --application-choice browser
 
       - name: Write CI mozconfig
         run: |
@@ -85,6 +98,8 @@ jobs:
           ac_add_options --enable-application=browser
           ac_add_options --enable-optimize
           ac_add_options --disable-debug
+          ac_add_options --disable-tests
+          ac_add_options --enable-strip
           # Point this at your NorthGate branding, e.g.:
           # ac_add_options --with-branding=browser/branding/mb-release
           mk_add_options MOZ_OBJDIR=@TOPSRCDIR@/obj-build
