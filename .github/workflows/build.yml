@@ -42,18 +42,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: linux
-            runner: ubuntu-latest
-            artifact: northgate-linux
+          # Windows-only on this branch: Linux/macOS hosted runners hit
+          # disk/memory and timeout limits. Restore the full matrix on main.
           - name: windows
             runner: windows-latest
             artifact: northgate-windows
-          - name: macos
-            runner: macos-latest
-            artifact: northgate-macos
 
     defaults:
       run:
+        # A job-level defaults.run block does not inherit the workflow-level
+        # `shell: bash`, so it must be repeated here or Windows falls back to
+        # PowerShell and the bash heredoc in "Write CI mozconfig" fails.
+        shell: bash
         working-directory: src
 
     steps:
