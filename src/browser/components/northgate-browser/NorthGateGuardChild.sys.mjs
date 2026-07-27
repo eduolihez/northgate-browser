@@ -11,6 +11,7 @@ export class NorthGateGuardChild extends JSWindowActorChild {
       case "NorthGateBlocked:Proceed":
         this.sendAsyncMessage("NorthGateGuard:AllowOnce", {
           url: event.detail.url,
+          permanent: event.detail.permanent,
         });
         break;
     }

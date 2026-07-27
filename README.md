@@ -23,9 +23,10 @@ NorthGate is a security-focused fork that keeps the privacy posture of Mullvad B
 
 ## Highlights
 
-- **On-device phishing detection.** A tree-ensemble model exported to ONNX scores each top-level navigation from lexical URL features alone. No URL, hostname, or telemetry ever leaves your machine.
-- **Navigation guard with a friendly escape hatch.** High-risk pages are intercepted and replaced with a clear warning interstitial (`about:northgate-blocked`) that still lets you continue if you choose. Normal browsing is never slowed or interrupted.
-- **Privacy & security dashboard.** `about:northgate` shows the current site's privacy score, trackers blocked (by category), the classifier's verdict with a plain-language explanation, and a per-session alert history — styled to match the rest of the browser.
+- **On-device phishing detection.** A tree-ensemble model exported to ONNX scores each top-level navigation from lexical URL features alone. Inference runs locally using `tract-onnx` in pure Rust with **zero external binary dependencies** and zero network requests.
+- **Navigation guard with a friendly escape hatch.** High-risk pages are intercepted and replaced with a clear warning interstitial (`about:northgate-blocked`) that lets you go back, proceed temporarily, or **permanently trust the website** via a persistent whitelist checkbox.
+- **Dynamic Sensitivity Slider.** The active classification threshold scales dynamically with the browser's Security Level Slider settings (`Standard`, `Safer`, or `Safest`).
+- **Privacy & security dashboard.** `about:northgate` shows the current site's privacy score, trackers blocked (by category), the classifier's verdict with a structured, detailed explanation card, and a per-session alert history.
 - **Inherited hardening.** Anti-fingerprinting, always-private browsing, zero telemetry, and DNS leak protection from Mullvad/Tor Browser (see [Privacy & threat model](#privacy--threat-model)).
 - **Reproducible ML pipeline.** Dataset collection, feature engineering, training, and ONNX export are all scripted and documented under [`ml-model/`](ml-model/).
 
@@ -37,8 +38,8 @@ flowchart LR
     B -->|score below threshold| C[Load page normally]
     B -->|score at/above threshold| D[about:northgate-blocked<br/>warning interstitial]
     D -->|Go back| E[Safety]
-    D -->|Proceed anyway| C
-    B -. consults .-> F[On-device classifier<br/>Rust + ONNX Runtime]
+    D -->|Proceed & permanent whitelist| C
+    B -. consults .-> F[On-device classifier<br/>Rust + tract-onnx]
     F -. embedded .-> G[(northgate_phishing.onnx)]
     C --> H[about:northgate<br/>privacy dashboard]
 ```
@@ -73,6 +74,9 @@ northgate-browser/
 ├── ml-model/                Phishing classifier: dataset pipeline, training, ONNX export
 │   ├── dataset/             feed collection + feature extraction
 │   └── model/               training script + exported northgate_phishing.onnx
+├── docs/                    Wiki / Documentation articles
+│   ├── ARCHITECTURE.md      Detailed components & security boundaries architecture
+│   └── FAQ.md               Phishing protection & design FAQ
 ├── .github/workflows/       CI: build & release for Linux, Windows, macOS
 └── README.md
 ```

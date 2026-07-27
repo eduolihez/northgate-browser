@@ -115,3 +115,31 @@ body {
 .ngate-blocked-danger:hover {
   background-color: var(--in-content-button-background-hover);
 }
+
+/* Whitelist checkbox styling */
+.ngate-blocked-remember {
+  align-self: center;
+  margin-block-start: var(--space-small);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-small);
+  font-size: var(--font-size-small);
+  color: var(--text-color-deemphasized);
+}
+
+.ngate-checkbox-container {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-small);
+  cursor: pointer;
+  user-select: none;
+}
+
+.ngate-checkbox-container input {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  accent-color: var(--ngate-danger);
+}

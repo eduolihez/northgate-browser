@@ -52,6 +52,13 @@ body {
   border: var(--border-width) solid var(--in-content-border-color);
   border-radius: var(--border-radius-medium);
   padding: var(--space-large);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+  transition: transform 150ms ease, box-shadow 150ms ease;
+}
+
+.ngate-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.06);
 }
 
 .ngate-card h2 {
@@ -223,21 +230,41 @@ body {
   margin: 0 0 var(--space-medium);
 }
 
-.ngate-reasons li {
-  position: relative;
-  padding-inline-start: var(--space-large);
-  font-size: var(--font-size-small);
+.ngate-reason-item {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xxsmall);
+  padding: var(--space-medium);
+  border-radius: var(--border-radius-medium);
+  background-color: var(--color-gray-10);
+  border-inline-start: 4px solid var(--ngate-suspicious);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.02);
 }
 
-.ngate-reasons li::before {
-  content: "";
-  position: absolute;
-  inset-inline-start: 0;
-  inset-block-start: 0.5em;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background-color: var(--text-color-deemphasized);
+.ngate-classifier-card[data-verdict="dangerous"] .ngate-reason-item {
+  border-inline-start-color: var(--ngate-dangerous);
+}
+
+.ngate-classifier-card[data-verdict="safe"] .ngate-reason-item {
+  border-inline-start-color: var(--ngate-safe);
+}
+
+@media (prefers-color-scheme: dark) {
+  .ngate-reason-item {
+    background-color: var(--color-gray-80);
+  }
+}
+
+.ngate-reason-label {
+  font-weight: var(--font-weight-bold);
+  font-size: var(--font-size-medium);
+}
+
+.ngate-reason-detail {
+  margin: 0;
+  color: var(--text-color-deemphasized);
+  font-size: var(--font-size-small);
+  line-height: 1.4;
 }
 
 /* Alerts */
