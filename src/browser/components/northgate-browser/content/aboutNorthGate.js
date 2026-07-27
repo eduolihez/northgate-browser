@@ -95,7 +95,17 @@ function renderClassifier(classification) {
   const ids = reasons.length ? reasons : ["ngate-reason-none"];
   for (const id of ids) {
     const li = document.createElement("li");
-    document.l10n.setAttributes(li, id);
+    li.className = "ngate-reason-item";
+
+    const label = document.createElement("span");
+    label.className = "ngate-reason-label";
+    document.l10n.setAttributes(label, id);
+
+    const detail = document.createElement("p");
+    detail.className = "ngate-reason-detail";
+    document.l10n.setAttributes(detail, `${id}.detail`);
+
+    li.append(label, detail);
     list.append(li);
   }
 }

@@ -39,3 +39,6 @@ pref("app.update.url.details", "https://mullvad.net/download/browser");
 pref("app.update.badgeWaitTime", 0);
 // point to our feedback url rather than Mozilla's
 pref("app.feedback.baseURL", "https://mullvad.net/help/tag/browser/");
+
+// NorthGate Phishing Protection persistent whitelist
+pref("browser.northgate.whitelist", "");

@@ -39,9 +39,10 @@ document.addEventListener("DOMContentLoaded", () => {
     .addEventListener("click", () => {
       // Hand off to the parent guard: allow-list this URL for the session and
       // continue the load. The guard performs the navigation.
+      const permanent = document.getElementById("ngate-blocked-permanent").checked;
       window.dispatchEvent(
         new CustomEvent("NorthGateBlocked:Proceed", {
-          detail: { url },
+          detail: { url, permanent },
           bubbles: true,
         })
       );

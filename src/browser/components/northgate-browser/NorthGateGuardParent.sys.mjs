@@ -21,7 +21,9 @@ export class NorthGateGuardParent extends JSWindowActorParent {
       case "NorthGateGuard:Score":
         return Promise.resolve(this.#score(message.data.url));
       case "NorthGateGuard:AllowOnce":
-        return Promise.resolve(this.#allowOnce(message.data.url));
+        return Promise.resolve(
+          this.#allowOnce(message.data.url, message.data.permanent)
+        );
     }
     return undefined;
   }
@@ -40,7 +42,7 @@ export class NorthGateGuardParent extends JSWindowActorParent {
     }
   }
 
-  #allowOnce(url) {
+  #allowOnce(url, permanent) {
     let uri;
     try {
       uri = Services.io.newURI(url);
@@ -53,12 +55,34 @@ export class NorthGateGuardParent extends JSWindowActorParent {
     if (!uri.schemeIs("http") && !uri.schemeIs("https")) {
       return { ok: false };
     }
+
+    if (permanent) {
+      try {
+        const whitelist = Services.prefs.getCharPref(
+          "browser.northgate.whitelist",
+          ""
+        );
+        const hosts = whitelist ? whitelist.split(",").map(h => h.trim()) : [];
+        if (!hosts.includes(uri.host)) {
+          hosts.push(uri.host);
+          Services.prefs.setCharPref(
+            "browser.northgate.whitelist",
+            hosts.join(",")
+          );
+        }
+      } catch (e) {
+        console.error("NorthGateGuardParent.allowOnce permanent fail:", e);
+      }
+    }
+
     NorthGateAllowList.add(uri.host);
     publishAllowList();
     try {
       this.browsingContext.top.loadURI(uri, {
         triggeringPrincipal:
-          Services.scriptSecurityManager.getSystemPrincipal(),
+          Services.scriptSecurityManager.createNullPrincipal(
+            this.browsingContext.originAttributes
+          ),
       });
     } catch (error) {
       return { ok: false, error: String(error) };

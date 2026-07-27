@@ -111,7 +111,7 @@ pub fn extract(raw: &str) -> Option<[f32; FEATURE_COUNT]> {
         .iter()
         .filter(|kw| lowered.contains(*kw))
         .count();
-    let is_shortened = SHORTENERS.contains(&host.trim_start_matches("www."));
+    let is_shortened = SHORTENERS.contains(host.strip_prefix("www.").unwrap_or(&host));
     let url_len = normalized.chars().count() as f32;
 
     Some([

@@ -59,12 +59,7 @@ DIRS += [
     # Exclude the "ml" component. tor-browser#44045.
     "mozintl",
     "mozprotocol",
-    # "northgate": Rust ONNX classifier. Excluded from the build until the `ort`
-    # (onnxruntime) crate is vendored and linked into gkrust; otherwise the
-    # component's C++ constructor (nsNorthGateClassifierConstructor) is an
-    # undefined symbol at libxul link time. Re-enable once integrated per
-    # toolkit/components/northgate/INTEGRATION.md. The front-end guard and
-    # dashboard degrade gracefully (they getService in try/catch).
+    "northgate",
     "pageextractor",
     "parentalcontrols",
     "passwordmgr",

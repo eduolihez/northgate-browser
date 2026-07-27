@@ -91,6 +91,30 @@ export const NorthGateClassifier = {
    * @returns {{probability: number, verdict: string, reasons: string[]}}
    */
   classify(urlString) {
+    let nativeClassifier = null;
+    try {
+      nativeClassifier = Cc["@mozilla.org/northgate/classifier;1"]?.getService(
+        Ci.nsINorthGateClassifier
+      );
+    } catch (_e) {}
+
+    let probability = null;
+    let verdict = "safe";
+
+    if (nativeClassifier) {
+      try {
+        probability = nativeClassifier.scoreURL(urlString);
+        const threshold = nativeClassifier.blockThreshold;
+        if (probability >= threshold) {
+          verdict = "dangerous";
+        } else if (probability >= threshold / 2) {
+          verdict = "suspicious";
+        }
+      } catch (e) {
+        probability = null;
+      }
+    }
+
     let url;
     try {
       url = new URL(urlString);
@@ -101,27 +125,20 @@ export const NorthGateClassifier = {
     const host = url.hostname;
     const lowered = urlString.toLowerCase();
     const reasons = [];
-    let score = 0;
 
-    // Each rule adds risk and, when triggered, a localizable reason id.
     if (isIpLiteral(host)) {
-      score += 0.35;
       reasons.push("ngate-reason-ip-literal");
     }
     if (url.protocol !== "https:") {
-      score += 0.1;
       reasons.push("ngate-reason-no-https");
     }
     if (urlString.includes("@")) {
-      score += 0.2;
       reasons.push("ngate-reason-at-symbol");
     }
     if (host.includes("xn--")) {
-      score += 0.15;
       reasons.push("ngate-reason-punycode");
     }
     if (SHORTENERS.has(host.replace(/^www\./, ""))) {
-      score += 0.1;
       reasons.push("ngate-reason-shortener");
     }
 
@@ -129,42 +146,73 @@ export const NorthGateClassifier = {
       lowered.includes(kw)
     ).length;
     if (keywordHits) {
-      score += Math.min(keywordHits * 0.08, 0.24);
       reasons.push("ngate-reason-keywords");
     }
 
     const subdomains = subdomainCount(host);
     if (subdomains >= 3) {
-      score += 0.15;
       reasons.push("ngate-reason-subdomains");
     }
 
     if (urlString.length > 75) {
-      score += 0.1;
       reasons.push("ngate-reason-long-url");
     }
 
     if ((host.match(/-/g) || []).length >= 3) {
-      score += 0.08;
       reasons.push("ngate-reason-hyphens");
     }
 
     if (shannonEntropy(host) > 3.6) {
-      score += 0.12;
       reasons.push("ngate-reason-random-host");
     }
 
     if (RISKY_TLDS.has(tldOf(host))) {
-      score += 0.1;
       reasons.push("ngate-reason-risky-tld");
     }
 
-    const probability = Math.max(0, Math.min(1, score));
-    let verdict = "safe";
-    if (probability >= DANGEROUS_AT) {
-      verdict = "dangerous";
-    } else if (probability >= SUSPICIOUS_AT) {
-      verdict = "suspicious";
+    if (probability === null) {
+      let score = 0;
+      if (isIpLiteral(host)) {
+        score += 0.35;
+      }
+      if (url.protocol !== "https:") {
+        score += 0.1;
+      }
+      if (urlString.includes("@")) {
+        score += 0.2;
+      }
+      if (host.includes("xn--")) {
+        score += 0.15;
+      }
+      if (SHORTENERS.has(host.replace(/^www\./, ""))) {
+        score += 0.1;
+      }
+      if (keywordHits) {
+        score += Math.min(keywordHits * 0.08, 0.24);
+      }
+      if (subdomains >= 3) {
+        score += 0.15;
+      }
+      if (urlString.length > 75) {
+        score += 0.1;
+      }
+      if ((host.match(/-/g) || []).length >= 3) {
+        score += 0.08;
+      }
+      if (shannonEntropy(host) > 3.6) {
+        score += 0.12;
+      }
+      if (RISKY_TLDS.has(tldOf(host))) {
+        score += 0.1;
+      }
+
+      probability = Math.max(0, Math.min(1, score));
+      verdict = "safe";
+      if (probability >= DANGEROUS_AT) {
+        verdict = "dangerous";
+      } else if (probability >= SUSPICIOUS_AT) {
+        verdict = "suspicious";
+      }
     }
 
     return { probability, verdict, reasons };
