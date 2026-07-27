@@ -34,22 +34,56 @@ function isAllowed(host) {
   }
   try {
     const mirror = Services.cpmm?.sharedData.get(ALLOWLIST_KEY);
-    return mirror instanceof Set && mirror.has(host);
-  } catch (_e) {
-    return false;
-  }
+    if (mirror instanceof Set && mirror.has(host)) {
+      return true;
+    }
+  } catch (_e) {}
+  try {
+    const whitelist = Services.prefs.getCharPref("browser.northgate.whitelist", "");
+    if (whitelist) {
+      const hosts = whitelist.split(",").map(h => h.trim());
+      if (hosts.includes(host)) {
+        return true;
+      }
+    }
+  } catch (_e) {}
+  return false;
+}
+
+function getActiveThreshold(baseThreshold) {
+  try {
+    const slider = Services.prefs.getIntPref(
+      "browser.security_level.security_slider",
+      4
+    );
+    if (slider === 1) {
+      return baseThreshold * 0.4; // Safest: 60% more sensitive (~0.097)
+    } else if (slider === 2) {
+      return baseThreshold * 0.7; // Safer: 30% more sensitive (~0.170)
+    }
+  } catch (_e) {}
+  return baseThreshold; // Standard (slider = 4)
 }
 
 export class NorthGateNavGuard {
   QueryInterface = ChromeUtils.generateQI(["nsIContentPolicy"]);
 
   #classifier = null;
+  #classifierChecked = false;
 
+  // The native ONNX classifier service is not present in every build. Resolve
+  // it lazily and remember its absence, so the guard silently no-ops instead of
+  // throwing (and logging) on every navigation when it is unavailable.
   get classifier() {
-    if (!this.#classifier) {
-      this.#classifier = Cc["@mozilla.org/northgate/classifier;1"].getService(
-        Ci.nsINorthGateClassifier
-      );
+    if (!this.#classifierChecked) {
+      this.#classifierChecked = true;
+      try {
+        this.#classifier = Cc[
+          "@mozilla.org/northgate/classifier;1"
+        ]?.getService(Ci.nsINorthGateClassifier);
+      } catch (_e) {
+        this.#classifier = null;
+      }
     }
     return this.#classifier;
   }
@@ -77,9 +111,15 @@ export class NorthGateNavGuard {
         return ACCEPT;
       }
 
+      const classifier = this.classifier;
+      if (!classifier) {
+        return ACCEPT;
+      }
+
       const spec = contentLocation.spec;
-      const score = this.classifier.scoreURL(spec);
-      if (score >= this.classifier.blockThreshold) {
+      const score = classifier.scoreURL(spec);
+      const threshold = getActiveThreshold(classifier.blockThreshold);
+      if (score >= threshold) {
         this.#redirectToInterstitial(bc, spec, score);
         return REJECT_REQUEST;
       }

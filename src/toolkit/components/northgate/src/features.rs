@@ -21,13 +21,17 @@ pub const FEATURE_ORDER: [&str; FEATURE_COUNT] = [
     "has_suspicious_keyword",
 ];
 
-const SUSPICIOUS_KEYWORDS: [&str; 42] = [
+// MUST stay in sync with SUSPICIOUS_KEYWORDS in ml-model/dataset/features.py:
+// the model was trained on the counts these keywords produce, so any mismatch
+// skews num_suspicious_keywords / has_suspicious_keyword at inference time.
+const SUSPICIOUS_KEYWORDS: [&str; 50] = [
     "login", "log-in", "signin", "sign-in", "logon", "verify", "verification",
     "account", "secure", "security", "update", "confirm", "password", "passwd",
     "credential", "bank", "banking", "paypal", "ebay", "amazon", "apple",
     "icloud", "microsoft", "office365", "outlook", "wallet", "crypto", "bonus",
-    "gift", "prize", "winner", "suspended", "locked", "billing", "invoice",
-    "payment", "recover", "unlock", "webscr", "auth", "refund", "support",
+    "free", "gift", "prize", "winner", "suspended", "locked", "alert", "billing",
+    "invoice", "payment", "recover", "unlock", "webscr", "cmd", "token", "auth",
+    "support", "service", "customer", "refund", "delivery", "tracking",
 ];
 
 const SHORTENERS: [&str; 13] = [
@@ -47,16 +51,17 @@ fn shannon_entropy(text: &str) -> f32 {
     if text.is_empty() {
         return 0.0;
     }
-    let mut counts = [0u32; 256];
+    // Count by Unicode scalar value, not by byte, to match the codepoint-based
+    // Counter used by the Python training pipeline (features.py).
+    let mut counts = std::collections::HashMap::new();
     let mut n = 0u32;
-    for b in text.bytes() {
-        counts[b as usize] += 1;
+    for ch in text.chars() {
+        *counts.entry(ch).or_insert(0u32) += 1;
         n += 1;
     }
     let n = n as f32;
     counts
-        .iter()
-        .filter(|&&c| c > 0)
+        .values()
         .map(|&c| {
             let p = c as f32 / n;
             -p * p.log2()
@@ -106,7 +111,7 @@ pub fn extract(raw: &str) -> Option<[f32; FEATURE_COUNT]> {
         .iter()
         .filter(|kw| lowered.contains(*kw))
         .count();
-    let is_shortened = SHORTENERS.contains(&host.trim_start_matches("www."));
+    let is_shortened = SHORTENERS.contains(host.strip_prefix("www.").unwrap_or(&host));
     let url_len = normalized.chars().count() as f32;
 
     Some([

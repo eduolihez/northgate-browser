@@ -13,11 +13,13 @@
 extern crate xpcom;
 
 use std::ffi::c_void;
+use std::io::Cursor;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::OnceLock;
 
 use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
 use nsstring::nsACString;
+use tract_onnx::prelude::*;
 use xpcom::interfaces::nsINorthGateClassifier;
 use xpcom::{nsIID, xpcom_method, RefPtr};
 
@@ -29,22 +31,38 @@ static MODEL_BYTES: &[u8] = include_bytes!("../model/northgate_phishing.onnx");
 /// Block threshold — keep in sync with `model/feature_order.json`.
 const BLOCK_THRESHOLD: f64 = 0.2429;
 
-/// Lazily-built inference session, shared for the life of the process.
-fn session() -> Option<&'static ort::session::Session> {
-    static SESSION: OnceLock<Option<ort::session::Session>> = OnceLock::new();
-    SESSION
+struct ModelWrapper {
+    predict: Box<dyn Fn(&[f32]) -> Option<f64> + Send + Sync>,
+}
+
+/// Lazily-built inference model execution plan, shared for the life of the process.
+fn model() -> Option<&'static ModelWrapper> {
+    static MODEL: OnceLock<Option<ModelWrapper>> = OnceLock::new();
+    MODEL
         .get_or_init(|| {
-            ort::session::Session::builder()
+            let reader = Cursor::new(MODEL_BYTES);
+            let runnable = tract_onnx::onnx()
+                .model_for_read(reader)
                 .ok()?
-                .with_optimization_level(
-                    ort::session::builder::GraphOptimizationLevel::Level3,
+                .into_optimized()
+                .ok()?
+                .into_runnable()
+                .ok()?;
+
+            let predict = Box::new(move |feats: &[f32]| -> Option<f64> {
+                let input_tensor: Tensor = ndarray::Array2::from_shape_vec(
+                    (1, features::FEATURE_COUNT),
+                    feats.to_vec(),
                 )
                 .ok()?
-                .with_intra_threads(1)
-                .ok()?
-                // Inference from the embedded bytes; no file or network access.
-                .commit_from_memory(MODEL_BYTES)
-                .ok()
+                .into();
+                let outputs = runnable.run(tvec!(input_tensor)).ok()?;
+                let probs_tensor = outputs.get(1)?;
+                let view = probs_tensor.to_array_view::<f32>().ok()?;
+                view.get([0, 1]).map(|p| *p as f64)
+            });
+
+            Some(ModelWrapper { predict })
         })
         .as_ref()
 }
@@ -52,16 +70,8 @@ fn session() -> Option<&'static ort::session::Session> {
 /// Run the model on one URL and return the phishing probability in [0, 1].
 fn score(url: &str) -> Option<f64> {
     let feats = features::extract(url)?;
-    let session = session()?;
-    let input = ndarray::Array2::from_shape_vec((1, features::FEATURE_COUNT), feats.to_vec())
-        .ok()?;
-    let outputs = session.run(ort::inputs!["X" => input].ok()?).ok()?;
-    // Output "probabilities" has shape [1, 2]; column 1 is the phishing class.
-    let probs = outputs["probabilities"]
-        .try_extract_tensor::<f32>()
-        .ok()?;
-    let view = probs.view();
-    view.get([0, 1]).map(|p| *p as f64)
+    let model = model()?;
+    (model.predict)(&feats)
 }
 
 #[xpcom(implement(nsINorthGateClassifier), atomic)]

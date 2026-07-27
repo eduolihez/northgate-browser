@@ -18,3 +18,4 @@ ngate-blocked-explain = Phishing sites imitate real ones to trick you into enter
 
 ngate-blocked-back = Go back (recommended)
 ngate-blocked-proceed = Ignore the warning and continue
+ngate-blocked-permanent-label = Permanently trust this website and do not warn me again

@@ -50,17 +50,29 @@ ngate-risk-caption = Estimated phishing risk:
 ngate-risk-percent = { $percent }%
 
 ngate-reason-none = No suspicious traits detected in the web address.
+    .detail = The address looks normal and conforms to standard naming patterns.
 ngate-reason-ip-literal = Uses a raw IP address instead of a domain name.
+    .detail = Legitimate sites use names like google.com. Raw IP numbers (like 192.168.1.1) are often used by attackers to hide their domain identity.
 ngate-reason-no-https = Connection is not encrypted (no HTTPS).
+    .detail = Data sent to this site is not encrypted and could be intercepted by others on your network.
 ngate-reason-at-symbol = Contains an “@” symbol, which can hide the real destination.
+    .detail = The “@” character in a URL makes the browser ignore everything before it, which attackers use to disguise malicious links.
 ngate-reason-punycode = Uses punycode, which can imitate a trusted brand.
+    .detail = Punycode (e.g. xn--) is used for international domains, but can be abused to create lookalike names using lookalike symbols.
 ngate-reason-shortener = Uses a link shortener that hides the real destination.
+    .detail = Shortened links (like bit.ly) redirect you to another site, hiding the final destination until you click.
 ngate-reason-keywords = Contains words often used to imitate logins or brands.
+    .detail = Words like “login”, “verify”, “secure”, or bank names in the address are typical in phishing links trying to look official.
 ngate-reason-subdomains = Has an unusually deep chain of subdomains.
+    .detail = Having many subdomains (e.g. bank.security.login.domain.com) is often used to deceive users into thinking they are on the real site.
 ngate-reason-long-url = The web address is unusually long.
+    .detail = Phishing links are sometimes padded with long random strings or subdomains to push the real domain name off the screen.
 ngate-reason-hyphens = The domain name uses many hyphens.
+    .detail = Attackers often use hyphens to combine names of popular brands (e.g. secure-paypal-login.com) to appear authentic.
 ngate-reason-random-host = The host name looks randomly generated.
+    .detail = A domain made of chaotic characters (e.g. ax83jd.com) suggests a disposable website set up for a short-lived campaign.
 ngate-reason-risky-tld = Uses a top-level domain frequently abused for phishing.
+    .detail = Some domain endings (like .tk, .xyz, .top) are very cheap or free, making them disproportionately popular with malicious actors.
 
 ## Session alerts
 
