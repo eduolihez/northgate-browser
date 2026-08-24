@@ -1,9 +1,14 @@
-Please see the file toolkit/content/license.html for the copyright licensing
-conditions attached to this codebase, including copies of the licenses
-concerned.
+Please see the file src/toolkit/content/license.html for the copyright licensing
+conditions attached to the vendored Firefox/Mullvad Browser codebase under src/,
+including copies of the licenses concerned.
+
+NorthGate's own additions on top of that codebase (including but not limited to
+ml-model/, docs/, and the NorthGate-specific patches under src/) are released
+under the Mozilla Public License 2.0 (MPL-2.0), consistent with upstream:
+https://www.mozilla.org/MPL/2.0/
 
 You are not granted rights or licenses to the trademarks of the
-Mozilla Foundation or any party, including without limitation the
-Firefox name or logo.
+Mozilla Foundation, Mullvad, or any party, including without limitation the
+Firefox or Mullvad Browser names or logos.
 
 For more information, see: http://www.mozilla.org/foundation/licensing.html

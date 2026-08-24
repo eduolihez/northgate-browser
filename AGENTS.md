@@ -1,4 +1,11 @@
 # Global instructions
+
+> **Scope note:** this repo's Firefox/Mullvad Browser tree lives under `src/`, not
+> at the repo root. Everything below (`./mach`, `searchfox-cli`, Phabricator
+> workflow) applies once you're working inside `src/` — run `cd src` first, or
+> prefix commands accordingly (`src/mach build`, not `./mach build`). NorthGate's
+> own code (`ml-model/`, `docs/`) sits outside `src/` and doesn't need `mach`.
+
 Limit the amount of comments you put in the code to a strict minimum. You should almost never add comments, except sometimes on non-trivial code, function definitions if the arguments aren't self-explanatory, and class definitions and their members.
 
 Do not remove existing comments unless they are directly related to what you are changing.
