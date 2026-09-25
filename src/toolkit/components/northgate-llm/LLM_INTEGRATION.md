@@ -212,6 +212,19 @@ These are real limitations of the current code relative to the design spec
   placement decision addressed input trust (the prompt only contains
   classifier-derived data), not this crash-isolation risk. Reconsider moving
   inference to a utility process if this shows up in crash reports.
+- [ ] **The `llama-cpp-2` API usage in `engine.rs` was written against a
+  version pin ("0.1.158") that turned out not to exist on crates.io** —
+  `cargo test`/`cargo build` failed outright with "candidate versions
+  found which didn't match" (latest real published version: 0.1.157).
+  The pin in `Cargo.toml` has been corrected to `=0.1.157`, but Task 8's
+  claimed cross-checks of the tokenization API against "llama-cpp-2
+  0.1.158's `examples/simple`" (see comments in `engine.rs` and this
+  file's item 3) cannot have been read from the real published crate,
+  since that version never existed. Re-verify `engine.rs`'s API usage
+  (`model.vocab().tokenize(...)`, the batch/sampler-chain approach
+  described in item 3) against the real, now-pinned 0.1.157 source before
+  trusting it — it may still be correct (0.1.157 and a hypothetical
+  0.1.158 are likely near-identical), but this has not been re-confirmed.
 
 ## 6. Enable the feature
 

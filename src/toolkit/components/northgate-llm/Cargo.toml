@@ -16,13 +16,17 @@ thin-vec = { version = "0.2.1", features = ["gecko-ffi"] }
 
 northgate_llm_prompt = { path = "../northgate-llm-prompt" }
 
-# Pinned to the exact version verified against `vendor/llama.cpp`'s pinned
-# tag (v0.5.0) while writing engine.rs -- see build.rs and Task 8's report
-# for what could/couldn't be verified about this dependency's own build.
+# Pinned to 0.1.157, the actual latest version published on crates.io as of
+# this fix (an earlier pin of "=0.1.158" did not exist on crates.io and
+# broke `cargo test`/`cargo build` outright -- see LLM_INTEGRATION.md's
+# "Known design gaps" for the follow-up: engine.rs's API usage was written
+# against a version string that turned out not to be real, so its claimed
+# verification against llama-cpp-2's actual source needs re-confirming
+# against 0.1.157 specifically before this is trusted).
 # `default-features = false` to skip the `openmp`, `android-shared-stdlib`
 # and `common` (~14 MB JSON-schema-to-grammar helper library) defaults,
 # none of which this CPU-only, plain-text-generation use case needs.
-llama-cpp-2 = { version = "=0.1.158", default-features = false }
+llama-cpp-2 = { version = "=0.1.157", default-features = false }
 
 [lib]
 path = "src/lib.rs"
