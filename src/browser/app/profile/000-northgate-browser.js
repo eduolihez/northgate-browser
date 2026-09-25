@@ -42,3 +42,7 @@ pref("app.feedback.baseURL", "https://mullvad.net/help/tag/browser/");
 
 // NorthGate Phishing Protection persistent whitelist
 pref("browser.northgate.whitelist", "");
+
+// NorthGate "Explain with local AI" on about:northgate. Off until the llama.cpp
+// decode loop in toolkit/components/northgate-llm/src/engine.rs is implemented.
+pref("browser.northgate.llmExplain.enabled", false);

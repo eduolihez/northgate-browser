@@ -344,3 +344,30 @@ body {
   border-color: transparent;
   color: var(--link-color);
 }
+
+/* LLM explain */
+.ngate-llm-explain {
+  margin-block-start: 1em;
+  padding-block-start: 1em;
+  border-block-start: 1px solid var(--in-content-border-color);
+}
+
+.ngate-llm-consent {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5em;
+  align-items: flex-start;
+
+  &[hidden] {
+    display: none;
+  }
+}
+
+.ngate-llm-error {
+  color: var(--text-color-error, #d70022);
+}
+
+.ngate-llm-result {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}

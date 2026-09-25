@@ -12,5 +12,10 @@ MOZ_SRC_FILES += [
     "NorthGateClassifier.sys.mjs",
     "NorthGateGuardChild.sys.mjs",
     "NorthGateGuardParent.sys.mjs",
+    "NorthGateLLMManager.sys.mjs",
     "NorthGateNavGuard.sys.mjs",
+]
+
+XPCSHELL_TESTS_MANIFESTS += [
+    "test/xpcshell/xpcshell.toml",
 ]

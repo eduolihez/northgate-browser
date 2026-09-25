@@ -115,6 +115,37 @@
             <span id="ngate-risk-pct"></span>
           </p>
           <ul id="ngate-reasons" class="ngate-reasons"></ul>
+
+          <div id="ngate-llm-explain" class="ngate-llm-explain" hidden>
+            <button
+              id="ngate-llm-button"
+              class="ngate-ghost-button"
+              data-l10n-id="ngate-llm-explain-button"
+            ></button>
+            <div id="ngate-llm-consent" class="ngate-llm-consent" hidden>
+              <p data-l10n-id="ngate-llm-consent"></p>
+              <button
+                id="ngate-llm-consent-confirm"
+                data-l10n-id="ngate-llm-consent-confirm"
+              ></button>
+              <button
+                id="ngate-llm-consent-cancel"
+                class="ngate-ghost-button"
+                data-l10n-id="ngate-llm-consent-cancel"
+              ></button>
+            </div>
+            <div id="ngate-llm-progress" class="ngate-meter" hidden>
+              <div id="ngate-llm-progress-bar" class="ngate-meter-fill"></div>
+            </div>
+            <p
+              id="ngate-llm-loading"
+              class="ngate-muted"
+              data-l10n-id="ngate-llm-loading"
+              hidden
+            ></p>
+            <p id="ngate-llm-error" class="ngate-llm-error" hidden></p>
+            <p id="ngate-llm-result" class="ngate-llm-result" hidden></p>
+          </div>
         </section>
       </div>
 

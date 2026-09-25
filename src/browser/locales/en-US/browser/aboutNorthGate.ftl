@@ -74,6 +74,16 @@ ngate-reason-random-host = The host name looks randomly generated.
 ngate-reason-risky-tld = Uses a top-level domain frequently abused for phishing.
     .detail = Some domain endings (like .tk, .xyz, .top) are very cheap or free, making them disproportionately popular with malicious actors.
 
+ngate-llm-explain-button = Explain with local AI
+ngate-llm-consent = This downloads a small AI model (about 1 GB) from NorthGate's GitHub releases the first time you use this. After that, explanations are generated fully offline. Continue?
+ngate-llm-consent-confirm = Download and explain
+ngate-llm-consent-cancel = Cancel
+ngate-llm-loading = Generating explanation…
+ngate-llm-error-generic = Couldn't generate an explanation right now.
+# Variables:
+#   $percent (number) - Download progress, 0-100.
+ngate-llm-downloading = Downloading model… { $percent }%
+
 ## Session alerts
 
 ngate-alerts-heading = Alerts this session

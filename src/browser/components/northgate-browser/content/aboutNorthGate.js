@@ -9,6 +9,17 @@ const CATEGORIES = [
 ];
 
 let latestData = null;
+// UI state of the explanation section (see setLLMSection).
+let llmState = "not-downloaded";
+// What the parent last reported about the model: "not-downloaded", "cached"
+// (file on disk, checksum not yet verified this session), or "ready".
+let modelState = "not-downloaded";
+let currentClassification = null;
+let currentHost = null;
+// Identifies the displayed site and verdict; a change clears stale LLM output.
+let currentSiteKey = null;
+
+const LLM_IDLE_STATES = new Set(["not-downloaded", "cached", "ready"]);
 
 function $(id) {
   return document.getElementById(id);
@@ -72,6 +83,7 @@ function renderTrackers(trackers) {
 }
 
 function renderClassifier(classification) {
+  currentClassification = classification;
   const card = document.querySelector(".ngate-classifier-card");
   const verdictEl = $("ngate-verdict");
   const { verdict, probability, reasons } = classification;
@@ -148,6 +160,81 @@ function renderAlerts(alerts) {
   }
 }
 
+function setLLMSection(state) {
+  llmState = state;
+  const button = $("ngate-llm-button");
+  const consent = $("ngate-llm-consent");
+  const progress = $("ngate-llm-progress");
+  const loading = $("ngate-llm-loading");
+  const error = $("ngate-llm-error");
+  const result = $("ngate-llm-result");
+
+  consent.hidden = state !== "awaiting-consent";
+  progress.hidden = state !== "downloading";
+  loading.hidden = state !== "generating";
+  error.hidden = state !== "error";
+  if (state !== "done") {
+    result.hidden = true;
+  }
+  button.disabled = state === "downloading" || state === "generating";
+}
+
+function showLLMError() {
+  setLLMSection("error");
+  document.l10n.setAttributes($("ngate-llm-error"), "ngate-llm-error-generic");
+}
+
+/**
+ * Clears any explanation, error, or pending consent left over from a
+ * previously displayed site. An in-progress download is left alone.
+ */
+function resetLLMSectionForNewSite() {
+  if (llmState !== "downloading") {
+    setLLMSection(modelState);
+  }
+}
+
+function requestExplanation() {
+  if (!currentClassification || !currentHost) {
+    return;
+  }
+  if (modelState === "ready") {
+    dispatchExplain();
+  } else if (modelState === "cached") {
+    // Verify the cached model without any network access; the parent replies
+    // "not-downloaded" if it fails, and consent is asked for then.
+    setLLMSection("generating");
+    window.dispatchEvent(
+      new CustomEvent("NorthGate:LLMDownload", {
+        detail: { allowNetwork: false },
+      })
+    );
+  } else {
+    setLLMSection("awaiting-consent");
+  }
+}
+
+function confirmDownloadAndExplain() {
+  setLLMSection("downloading");
+  $("ngate-llm-progress-bar").style.inlineSize = "0%";
+  window.dispatchEvent(
+    new CustomEvent("NorthGate:LLMDownload", {
+      detail: { allowNetwork: true },
+    })
+  );
+}
+
+function dispatchExplain() {
+  setLLMSection("generating");
+  // Only the displayed host is sent, so the parent can detect a site switch;
+  // it re-derives the verdict and reasons itself.
+  window.dispatchEvent(
+    new CustomEvent("NorthGate:LLMExplain", {
+      detail: { host: currentHost },
+    })
+  );
+}
+
 function render(data) {
   if (!data) {
     return;
@@ -156,6 +243,18 @@ function render(data) {
   renderAlerts(data.alerts || []);
 
   const hasSite = data.hasSite;
+  currentHost = hasSite ? data.site.host : null;
+  const siteKey = hasSite
+    ? JSON.stringify([
+        currentHost,
+        data.classification.verdict,
+        data.classification.reasons,
+      ])
+    : null;
+  if (siteKey !== currentSiteKey) {
+    currentSiteKey = siteKey;
+    resetLLMSectionForNewSite();
+  }
   $("ngate-grid").hidden = !hasSite;
   $("ngate-empty").hidden = hasSite;
   if (hasSite) {
@@ -179,5 +278,90 @@ document.addEventListener("DOMContentLoaded", () => {
   $("ngate-clear").addEventListener("click", () => {
     window.dispatchEvent(new CustomEvent("NorthGate:ClearAlerts"));
   });
+
+  $("ngate-llm-button").addEventListener("click", requestExplanation);
+  $("ngate-llm-consent-confirm").addEventListener(
+    "click",
+    confirmDownloadAndExplain
+  );
+  $("ngate-llm-consent-cancel").addEventListener("click", () =>
+    setLLMSection(modelState)
+  );
+
+  window.addEventListener("NorthGate:LLMStateResult", event => {
+    const { enabled, state } = event.detail ?? {};
+    $("ngate-llm-explain").hidden = !enabled;
+    if (!enabled) {
+      return;
+    }
+    if (state === "ready") {
+      modelState = "ready";
+    } else if (state === "cached-unverified") {
+      modelState = "cached";
+    } else {
+      modelState = "not-downloaded";
+    }
+    if (LLM_IDLE_STATES.has(llmState)) {
+      setLLMSection(modelState);
+    }
+  });
+
+  window.addEventListener("NorthGate:LLMProgress", event => {
+    if (typeof event.detail?.fraction !== "number") {
+      return;
+    }
+    $("ngate-llm-progress-bar").style.inlineSize = `${Math.round(
+      event.detail.fraction * 100
+    )}%`;
+  });
+
+  window.addEventListener("NorthGate:LLMDownloadResult", event => {
+    const state = event.detail?.state;
+    if (state === "ready") {
+      modelState = "ready";
+    } else if (state === "not-downloaded") {
+      modelState = "not-downloaded";
+    }
+    // Ignore replies to a request whose UI was since reset by a site switch.
+    if (llmState !== "downloading" && llmState !== "generating") {
+      if (LLM_IDLE_STATES.has(llmState)) {
+        setLLMSection(modelState);
+      }
+      return;
+    }
+    if (state === "ready") {
+      dispatchExplain();
+    } else if (state === "not-downloaded") {
+      // The cached model failed verification; a download needs consent.
+      setLLMSection("awaiting-consent");
+    } else {
+      showLLMError();
+    }
+  });
+
+  window.addEventListener("NorthGate:LLMExplainResult", event => {
+    const detail = event.detail;
+    if (!detail || llmState !== "generating") {
+      return;
+    }
+    if (detail.siteChanged) {
+      setLLMSection(modelState);
+      window.dispatchEvent(new CustomEvent("NorthGate:Refresh"));
+      return;
+    }
+    if (detail.host !== undefined && detail.host !== currentHost) {
+      return;
+    }
+    if (detail.ok) {
+      $("ngate-llm-result").textContent = detail.explanation;
+      $("ngate-llm-result").hidden = false;
+      setLLMSection("done");
+    } else {
+      showLLMError();
+    }
+  });
+
+  window.dispatchEvent(new CustomEvent("NorthGate:LLMState"));
+
   render(latestData);
 });

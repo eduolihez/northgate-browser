@@ -1,0 +1,3 @@
+[submodule "src/toolkit/components/northgate-llm/vendor/llama.cpp"]
+	path = src/toolkit/components/northgate-llm/vendor/llama.cpp
+	url = https://github.com/ggml-org/llama.cpp

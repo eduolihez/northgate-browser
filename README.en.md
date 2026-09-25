@@ -67,7 +67,9 @@ uBlock Origin and NoScript ship with the browser and cannot be uninstalled. The 
 
 ### What the on-device model does and does not do
 
-The ONNX model is embedded in the binary and the ONNX Runtime is linked without any dynamic download, so scoring never leaves your machine.
+The ONNX model is embedded in the binary and the ONNX Runtime is linked without any dynamic download, so the phishing classifier's scoring never leaves your machine.
+
+There's one narrow, opt-in exception: the local LLM explanation feature. `about:northgate`'s "Explain with local AI" button downloads a quantized language model (~1GB, from this project's own GitHub Releases, checksum-verified) the first time it's used, after explicit consent. This is the only network request anywhere in NorthGate's ML stack. After that one-time download, generation is 100% local, same as the classifier. The rest of NorthGate — including the phishing classifier and navigation guard — is completely unaffected if you never use this feature. The feature is currently disabled by default (`browser.northgate.llmExplain.enabled = false`) until on-device generation is finished.
 
 The alert history stores hostnames only, never full URLs, which can carry session tokens. It records nothing from private-browsing windows.
 

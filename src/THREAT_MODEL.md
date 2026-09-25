@@ -280,7 +280,61 @@ on-device inference over page content" guarantee (2.7) stays intact.
 7. **Content isolation.** ServiceWorkers and Push are off (2.6); the module cannot rely on them.
    Privileged↔content messaging should go through the actor framework, not `postMessage` into pages.
 
-### 5.3 New threats the AI module introduces (to be filled in during phase 5)
+### 5.3 Implemented: local LLM explanation feature (deviates from 5.1's remote-inference default)
+
+> **Verification status:** the properties below describe the *designed* behavior of this feature.
+> Code-complete but not yet compiled or run-verified in this environment — see
+> `toolkit/components/northgate-llm/LLM_INTEGRATION.md`'s Status section for the current
+> build/verification state.
+
+Unlike the remote-inference shape recommended in 5.1, the shipped "Explain with local AI" feature
+(`about:northgate`, `toolkit/components/northgate-llm/`) does on-device inference with a quantized
+local model (llama.cpp), not a remote API call. This is a deliberate, narrow, documented exception
+to 2.7's "no local model download" mitigation — see `README.md`'s "On-device ML privacy
+commitments" section for the user-facing wording, which this entry mirrors:
+
+- **One-time, opt-in, checksum-verified download.** The model (~1GB, quantized) is fetched from
+  this project's own GitHub Releases only after the user clicks "Explain with local AI" and
+  confirms an explicit consent prompt stating the size and behavior. It is never downloaded
+  silently or on startup. `NorthGateLLMManager.sys.mjs` verifies the SHA-256 checksum before the
+  file is trusted; a mismatch is treated as absent (deleted, redownload offered), never used.
+- **Not the internal `browser.ml.*` stack.** This does not unlock `browser.ml.enable`,
+  `browser.ai.control.default`, or `extensions.ml.enabled` (still locked `false`/`"blocked"` per
+  2.7) — it is a separate first-party XPCOM service (`nsINorthGateLLM`,
+  `@mozilla.org/northgate/llm;1`) with its own vendored Rust crate, independent of the disabled
+  Firefox ML engine.
+- **Egress.** The one download request resolves via the same Mullvad DoH path as everything else
+  (`network.trr.mode = 3`) and is subject to the same locked proxy-bypass prevention (5.2#2). It is
+  a new entry for section 4's "intentionally preserved outbound connections" catalogue, gated on
+  user opt-in rather than always-on.
+- **After the download, zero network calls.** Generation runs entirely on-device
+  (`northgate-llm`'s Rust crate + vendored llama.cpp), identical in posture to the classifier
+  (2.7's "on-device inference over page content" guarantee still holds — the LLM only ever sees
+  the classifier's already-computed verdict/probability/reasons, not raw page content).
+- **Fails safe.** Same philosophy as the classifier (5's guiding principle): a missing model,
+  failed download, or generation error surfaces as "couldn't generate an explanation" and never
+  affects the navigation-blocking decision, which remains solely `nsINorthGateClassifier`'s.
+  **Correction:** Gecko builds Rust with `panic = "abort"` (`src/Cargo.toml`), so the
+  `catch_unwind` in `northgate-llm`'s `lib.rs` does *not* catch Rust panics; a panic aborts the
+  whole browser. The real property is "never panic in the first place": every failure on the
+  inference path must be a returned `Err`. Native llama.cpp aborts/OOM during model load are
+  likewise not contained (the service runs in the parent process); see `LLM_INTEGRATION.md`.
+- **Disabled by default.** The feature is gated behind `browser.northgate.llmExplain.enabled`
+  (default `false`) until on-device generation is implemented; with the pref off, the UI is hidden
+  and the parent actor refuses download/explain requests.
+- **Prompt input is parent-derived.** The parent actor re-runs the classifier on the current site
+  and maps its reason ids to a fixed allowlist of English strings; nothing the dashboard page sends
+  reaches the prompt.
+- **Not yet reviewed for untrusted input.** Per this document's own scoping note at the top of
+  "Components" in the design spec, this placement (main-process-adjacent, no extra sandboxing) is
+  specific to feeding the LLM only the classifier's own already-extracted, non-attacker-controlled
+  features. It does **not** carry over to any future sub-project that feeds the LLM raw page
+  content or script — that would need its own process-isolation and prompt-injection review before
+  reusing this runtime. See
+  `docs/superpowers/specs/2026-09-24-local-llm-runtime-design.md`'s "Open items for future
+  sub-projects" section.
+
+### 5.4 New threats the AI module introduces (to be filled in during phase 5)
 - **Prompt/content exfiltration:** page or user text sent to inference leaves the machine — the
   single biggest new leak vector; scope and consent must be explicit.
 - **Endpoint linkability:** a per-install API key or a unique endpoint reintroduces the

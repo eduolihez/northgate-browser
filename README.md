@@ -67,7 +67,9 @@ uBlock Origin y NoScript vienen con el navegador y no se pueden desinstalar. El 
 
 ### Qué hace y qué no hace el modelo local
 
-El modelo ONNX va embebido en el binario y el ONNX Runtime se enlaza sin ninguna descarga dinámica, así que la puntuación nunca sale de tu máquina.
+El modelo ONNX va embebido en el binario y el ONNX Runtime se enlaza sin ninguna descarga dinámica, así que la puntuación del clasificador de phishing nunca sale de tu máquina.
+
+Hay una única excepción, limitada y opcional: la función de explicación con IA local. El botón «Explicar con IA local» de `about:northgate` descarga un modelo de lenguaje cuantizado (~1GB, desde los GitHub Releases de este propio proyecto, verificado por checksum) la primera vez que se usa, tras consentimiento explícito. Es la única petición de red en toda la pila de ML de NorthGate. Tras esa descarga única, la generación es 100% local, igual que el clasificador. El resto de NorthGate — incluyendo el clasificador de phishing y el guardián de navegación — no se ve afectado en absoluto si nunca usas esta función. La función está desactivada por defecto (`browser.northgate.llmExplain.enabled = false`) hasta que la generación en el dispositivo esté terminada.
 
 El historial de alertas guarda solo nombres de host, nunca URLs completas, que pueden llevar tokens de sesión. No registra nada de las ventanas de navegación privada.
 

@@ -1,0 +1,10 @@
+[package]
+name = "northgate_llm_prompt"
+version = "0.1.0"
+authors = ["The NorthGate Project"]
+edition = "2021"
+license = "MPL-2.0"
+description = "Dependency-free prompt construction and response cleanup for the NorthGate local LLM explanation feature."
+
+[lib]
+path = "src/lib.rs"
