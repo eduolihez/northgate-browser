@@ -282,6 +282,11 @@ on-device inference over page content" guarantee (2.7) stays intact.
 
 ### 5.3 Implemented: local LLM explanation feature (deviates from 5.1's remote-inference default)
 
+> **Verification status:** the properties below describe the *designed* behavior of this feature.
+> Code-complete but not yet compiled or run-verified in this environment — see
+> `toolkit/components/northgate-llm/LLM_INTEGRATION.md`'s Status section for the current
+> build/verification state.
+
 Unlike the remote-inference shape recommended in 5.1, the shipped "Explain with local AI" feature
 (`about:northgate`, `toolkit/components/northgate-llm/`) does on-device inference with a quantized
 local model (llama.cpp), not a remote API call. This is a deliberate, narrow, documented exception
@@ -318,7 +323,7 @@ commitments" section for the user-facing wording, which this entry mirrors:
   `docs/superpowers/specs/2026-09-24-local-llm-runtime-design.md`'s "Open items for future
   sub-projects" section.
 
-### 5.3 New threats the AI module introduces (to be filled in during phase 5)
+### 5.4 New threats the AI module introduces (to be filled in during phase 5)
 - **Prompt/content exfiltration:** page or user text sent to inference leaves the machine — the
   single biggest new leak vector; scope and consent must be explicit.
 - **Endpoint linkability:** a per-install API key or a unique endpoint reintroduces the
