@@ -1,3 +1,7 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
 /// The classifier's already-computed verdict for one page, exactly as shown
 /// today in about:northgate. No raw URL, HTML, or script content is ever
 /// part of this — only categorical/numeric signals already surfaced to the
