@@ -106,17 +106,21 @@ export class AboutNorthGateParent extends JSWindowActorParent {
         return;
       }
 
-      service.explainVerdict(
-        verdict,
-        probability,
-        reasons,
-        lazy.northGateLLMManager.modelPath(),
-        {
-          QueryInterface: ChromeUtils.generateQI(["nsINorthGateLLMCallback"]),
-          onResult: explanation => resolve({ ok: true, explanation }),
-          onError: message => resolve({ ok: false, message }),
-        }
-      );
+      try {
+        service.explainVerdict(
+          verdict,
+          probability,
+          reasons,
+          lazy.northGateLLMManager.modelPath(),
+          {
+            QueryInterface: ChromeUtils.generateQI(["nsINorthGateLLMCallback"]),
+            onResult: explanation => resolve({ ok: true, explanation }),
+            onError: message => resolve({ ok: false, message }),
+          }
+        );
+      } catch (e) {
+        resolve({ ok: false, message: String(e) });
+      }
     });
   }
 
