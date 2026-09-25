@@ -60,7 +60,8 @@ The full inventory of controls — what each mitigates and what it explicitly do
 
 ### On-device ML privacy commitments
 
-- **No network calls from the model.** The ONNX model is embedded in the binary; the ONNX Runtime is linked without any dynamic download, and scoring is entirely local.
+- **No network calls from the phishing classifier.** The ONNX model is embedded in the binary; the ONNX Runtime is linked without any dynamic download, and scoring is entirely local.
+- **One narrow, opt-in exception: the local LLM explanation feature.** `about:northgate`'s "Explain with local AI" button downloads a quantized language model (~1GB, from this project's own GitHub Releases, checksum-verified) the first time it's used, after explicit consent. This is the only network request anywhere in NorthGate's ML stack. After that one-time download, generation is 100% local, same as the classifier. The rest of NorthGate — including the phishing classifier and navigation guard — is completely unaffected if you never use this feature.
 - **No sensitive data retained.** The alert history stores hostnames only — never full URLs (which can carry session tokens) — and records nothing from private-browsing windows.
 - **Fails safe.** If the classifier is ever unavailable, the navigation guard allows the load: it can never block or break normal browsing.
 
