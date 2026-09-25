@@ -10,6 +10,8 @@ const lazy = {};
 ChromeUtils.defineESModuleGetters(lazy, {
   NorthGateClassifier:
     "moz-src:///browser/components/northgate-browser/NorthGateClassifier.sys.mjs",
+  northGateLLMManager:
+    "moz-src:///browser/components/northgate-browser/NorthGateLLMManager.sys.mjs",
 });
 
 // Content-blocking states that count as a blocked tracker, grouped by the
@@ -71,8 +73,51 @@ export class AboutNorthGateParent extends JSWindowActorParent {
       case "AboutNorthGate:ClearAlerts":
         sessionAlerts.clear();
         return Promise.resolve(this.#buildPayload());
+      case "AboutNorthGate:LLMState":
+        return Promise.resolve({ state: lazy.northGateLLMManager.getState() });
+      case "AboutNorthGate:LLMDownload":
+        return this.#downloadModel();
+      case "AboutNorthGate:LLMExplain":
+        return this.#explainVerdict(message.data);
     }
     return undefined;
+  }
+
+  async #downloadModel() {
+    try {
+      await lazy.northGateLLMManager.ensureDownloaded(fraction => {
+        this.sendAsyncMessage("AboutNorthGate:LLMProgress", { fraction });
+      });
+      return { state: "ready" };
+    } catch (e) {
+      return { state: "error", message: String(e) };
+    }
+  }
+
+  #explainVerdict({ verdict, probability, reasons }) {
+    return new Promise(resolve => {
+      let service;
+      try {
+        service = Cc["@mozilla.org/northgate/llm;1"].getService(
+          Ci.nsINorthGateLLM
+        );
+      } catch (e) {
+        resolve({ ok: false, message: "LLM service unavailable" });
+        return;
+      }
+
+      service.explainVerdict(
+        verdict,
+        probability,
+        reasons,
+        lazy.northGateLLMManager.modelPath(),
+        {
+          QueryInterface: ChromeUtils.generateQI(["nsINorthGateLLMCallback"]),
+          onResult: explanation => resolve({ ok: true, explanation }),
+          onError: message => resolve({ ok: false, message }),
+        }
+      );
+    });
   }
 
   /**

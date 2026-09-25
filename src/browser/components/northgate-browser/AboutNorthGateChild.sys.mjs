@@ -7,20 +7,41 @@ export class AboutNorthGateChild extends JSWindowActorChild {
     switch (event.type) {
       case "DOMContentLoaded":
       case "NorthGate:Refresh":
-        this.#send("AboutNorthGate:GetData");
+        this.#send("AboutNorthGate:GetData", "NorthGate:Data");
         break;
       case "NorthGate:ClearAlerts":
-        this.#send("AboutNorthGate:ClearAlerts");
+        this.#send("AboutNorthGate:ClearAlerts", "NorthGate:Data");
+        break;
+      case "NorthGate:LLMState":
+        this.#send("AboutNorthGate:LLMState", "NorthGate:LLMState");
+        break;
+      case "NorthGate:LLMDownload":
+        this.#send("AboutNorthGate:LLMDownload", "NorthGate:LLMDownload");
+        break;
+      case "NorthGate:LLMExplain":
+        this.#send(
+          "AboutNorthGate:LLMExplain",
+          "NorthGate:LLMExplain",
+          event.detail
+        );
         break;
     }
   }
 
-  #send(query) {
-    this.sendQuery(query).then(data => this.#dispatch(data));
+  receiveMessage(message) {
+    if (message.name === "AboutNorthGate:LLMProgress") {
+      this.#dispatch("NorthGate:LLMProgress", message.data);
+    }
   }
 
-  #dispatch(data) {
-    const event = new this.contentWindow.CustomEvent("NorthGate:Data", {
+  #send(query, eventName, data) {
+    this.sendQuery(query, data).then(result =>
+      this.#dispatch(eventName, result)
+    );
+  }
+
+  #dispatch(eventName, data) {
+    const event = new this.contentWindow.CustomEvent(eventName, {
       detail: Cu.cloneInto(data, this.contentWindow),
     });
     this.contentWindow.dispatchEvent(event);
