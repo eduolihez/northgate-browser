@@ -34,12 +34,11 @@ use engine::Engine;
 const MAX_RESPONSE_CHARS: usize = 800;
 const MAX_TOKENS: usize = 200;
 /// Per design spec: generation is bounded to ~15s so a slow machine never
-/// hangs the caller. The stub `Engine::generate()` returns immediately and
-/// cannot itself be preempted mid-call, so this is enforced as a deadline
-/// check around the call rather than true cancellation. Task 8 (real
-/// llama.cpp backend) should thread a cancellation/deadline check into the
-/// token-generation loop itself so a hung/slow model is actually interrupted
-/// instead of merely reported as having overrun after the fact.
+/// hangs the caller. `Engine::generate()` cannot be preempted mid-call, so
+/// this is only a deadline check after it returns: it cannot interrupt a hung
+/// call, and it discards a valid-but-slow result. A real timeout needs a
+/// cancellation/deadline check inside the (not yet written) decode loop in
+/// engine.rs; see LLM_INTEGRATION.md.
 const GENERATION_TIMEOUT_SECS: u64 = 15;
 
 struct ExplainTask {
@@ -52,6 +51,10 @@ struct ExplainTask {
 impl Task for ExplainTask {
     fn run(&self) {
         // Runs on the shared background thread pool.
+        //
+        // `catch_unwind` is defense in depth only: Gecko builds Rust with
+        // `panic = "abort"`, so a panic aborts the process before it could be
+        // caught here. Everything on this path must return `Err`, never panic.
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             let engine = Engine::load(&self.model_path)
                 .map_err(|e| format!("model load failed: {e:?}"))?;

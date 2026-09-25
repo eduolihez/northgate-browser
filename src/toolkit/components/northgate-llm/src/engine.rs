@@ -7,13 +7,15 @@
 //! `vendor/llama.cpp`, pinned to tag `v0.5.0`).
 //!
 //! `generate()` is deliberately incomplete: it loads the model, creates a
-//! context, and tokenizes the prompt, then hits a documented `todo!()`
-//! instead of a decode/sample loop. Task 8's brief is explicit that this
-//! loop cannot be written responsibly without the pinned `llama-cpp-2`
-//! version in hand to check its current decode/sampling API, which is a
-//! fast-moving, version-specific surface (see the `todo!()` below for what
-//! was actually verified against `llama-cpp-2` 0.1.158's `examples/simple`
-//! at implementation time, and what remains to be transcribed).
+//! context, and tokenizes the prompt, then returns
+//! `EngineError::GenerationFailed("decode loop not implemented")` instead of
+//! running a decode/sample loop. Task 8's brief is explicit that this loop
+//! cannot be written responsibly without the pinned `llama-cpp-2` version in
+//! hand to check its current decode/sampling API, which is a fast-moving,
+//! version-specific surface (see the comment at the end of `generate()` for
+//! what was actually verified against `llama-cpp-2` 0.1.158's
+//! `examples/simple` at implementation time, and what remains to be
+//! transcribed).
 
 use llama_cpp_2::context::params::LlamaContextParams;
 use llama_cpp_2::llama_backend::LlamaBackend;
@@ -120,12 +122,17 @@ impl Engine {
         // v0.5.0 / `llama-cpp-2` 0.1.158 (see Cargo.lock once generated),
         // re-read `examples/simple` at that exact locked version (APIs here
         // have already drifted once between the brief's sketch and current
-        // main), and replace this `todo!()` with a loop that respects
+        // main), and replace the `Err` return below with a loop that respects
         // `max_tokens` and appends decoded text to `output`.
+        //
+        // Until then this must return an error, never `todo!()`/panic: Gecko
+        // builds Rust with `panic = "abort"` (see src/Cargo.toml), so a panic
+        // here aborts the whole browser process instead of being caught by
+        // the `catch_unwind` in lib.rs.
         let mut output = String::new();
         let _ = (&mut ctx, &tokens, max_tokens, &mut output);
-        todo!("wire the decode/sample loop against the vendored llama-cpp-2 API (see comment above)");
-        #[allow(unreachable_code)]
-        Ok(output)
+        Err(EngineError::GenerationFailed(
+            "decode loop not implemented".into(),
+        ))
     }
 }

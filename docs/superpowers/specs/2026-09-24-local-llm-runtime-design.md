@@ -121,9 +121,16 @@ process isolation) before reusing this runtime.
 - Panics during inference are caught (`catch_unwind`, same pattern as
   `NorthGateClassifier::score_url`) and surfaced as a rejected Promise, not
   a crash.
+  **Correction (post-implementation):** Gecko builds Rust with
+  `panic = "abort"` (`src/Cargo.toml`), so `catch_unwind` does *not* catch
+  panics here; a panic aborts the browser. The actual safety property is
+  "never panic in the first place": the inference path must return errors
+  (see `LLM_INTEGRATION.md`).
 - Model loading is lazy and cached for the process lifetime (mirrors
   `model()` in the existing classifier's `lib.rs`), but sourced from the
   profile-directory file instead of `include_bytes!`.
+  **Not yet implemented:** every call currently reloads the model and
+  re-initializes the llama.cpp backend; tracked in `LLM_INTEGRATION.md`.
 
 ### `NorthGateLLMManager` (new JS ES Module, alongside `NorthGateNavGuard.sys.mjs`)
 
@@ -168,7 +175,8 @@ rely solely on `nsINorthGateClassifier`.
   else is affected.
 - Download failure / checksum mismatch: error shown, partial file
   discarded, retry available.
-- Inference failure, panic, or timeout: caught, Promise rejects, UI shows
+- Inference failure, panic, or timeout (see the `panic = "abort"`
+  correction above: panics are not actually catchable): caught, Promise rejects, UI shows
   "couldn't generate an explanation"; the classifier's verdict remains
   visible and correct.
 - Insufficient RAM / model load failure: same rejected-Promise path, with a

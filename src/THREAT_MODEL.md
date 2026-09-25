@@ -314,6 +314,17 @@ commitments" section for the user-facing wording, which this entry mirrors:
 - **Fails safe.** Same philosophy as the classifier (5's guiding principle): a missing model,
   failed download, or generation error surfaces as "couldn't generate an explanation" and never
   affects the navigation-blocking decision, which remains solely `nsINorthGateClassifier`'s.
+  **Correction:** Gecko builds Rust with `panic = "abort"` (`src/Cargo.toml`), so the
+  `catch_unwind` in `northgate-llm`'s `lib.rs` does *not* catch Rust panics; a panic aborts the
+  whole browser. The real property is "never panic in the first place": every failure on the
+  inference path must be a returned `Err`. Native llama.cpp aborts/OOM during model load are
+  likewise not contained (the service runs in the parent process); see `LLM_INTEGRATION.md`.
+- **Disabled by default.** The feature is gated behind `browser.northgate.llmExplain.enabled`
+  (default `false`) until on-device generation is implemented; with the pref off, the UI is hidden
+  and the parent actor refuses download/explain requests.
+- **Prompt input is parent-derived.** The parent actor re-runs the classifier on the current site
+  and maps its reason ids to a fixed allowlist of English strings; nothing the dashboard page sends
+  reaches the prompt.
 - **Not yet reviewed for untrusted input.** Per this document's own scoping note at the top of
   "Components" in the design spec, this placement (main-process-adjacent, no extra sandboxing) is
   specific to feeding the LLM only the classifier's own already-extracted, non-attacker-controlled

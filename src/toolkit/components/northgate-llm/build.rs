@@ -40,26 +40,28 @@
 //! `./mach build` blocker in this environment rules out. See Task 8's
 //! report for details.
 //!
-//! What this build.rs does do: a fail-fast sanity check that the submodule
-//! was actually checked out (an uninitialized submodule directory is empty
-//! and would otherwise fail much more confusingly, deep inside whatever
-//! future step actually reads `vendor/llama.cpp`), plus a `cargo:warning`
+//! What this build.rs does do: warn (not fail) if the submodule was not
+//! checked out, since nothing in the build consumes it yet and a clone
+//! without `--recursive` should still build, plus a `cargo:warning`
 //! restating the above so it's visible in build output, not just source.
+//! Once the submodule is actually consumed, the missing-submodule warning
+//! should become a hard error again.
 
 fn main() {
-    let vendored_cmakelists = std::path::Path::new("vendor/llama.cpp/CMakeLists.txt");
+    let vendored_cmakelists =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("vendor/llama.cpp/CMakeLists.txt");
     if !vendored_cmakelists.exists() {
-        panic!(
-            "toolkit/components/northgate-llm/vendor/llama.cpp looks empty \
-             (missing CMakeLists.txt) -- the git submodule was probably not \
-             checked out. From the repository root, run:\n\n  \
-             git submodule update --init \
-             toolkit/components/northgate-llm/vendor/llama.cpp\n"
+        println!(
+            "cargo:warning=northgate_llm: src/toolkit/components/northgate-llm/vendor/llama.cpp \
+             looks empty (missing CMakeLists.txt); the git submodule was probably not checked \
+             out. It is not used by the build yet, so this is not fatal. From the repository \
+             root, run: git submodule update --init \
+             src/toolkit/components/northgate-llm/vendor/llama.cpp"
         );
     }
 
     println!(
-        "cargo:warning=northgate_llm: vendor/llama.cpp (pinned tag v0.5.0) is present but is \
+        "cargo:warning=northgate_llm: vendor/llama.cpp (pinned tag v0.5.0) is \
          NOT what actually gets compiled into this binary -- llama-cpp-sys-2 bundles and \
          cmake-builds its own internal copy of llama.cpp. See build.rs's module comment and \
          this task's report for why, and what reconciling them would take."

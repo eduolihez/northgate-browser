@@ -9,14 +9,15 @@ classifier documented in
 [`toolkit/components/northgate/INTEGRATION.md`](../northgate/INTEGRATION.md).
 
 > Status: the code (Rust crate, XPIDL, XPCOM service, JS manager, actor
-> wiring, `about:northgate` UI) is complete and follows Gecko conventions and
-> the existing classifier's established patterns, but it has **not been
-> compiled** in this environment. Every attempt at `./mach build` here was
-> killed by this environment's own memory-pressure safeguard before reaching
-> this code (see the plan's ledger,
-> `.superpowers/sdd/2026-09-24-local-llm-runtime/progress.md`, for the full
-> history). Treat the checklist below as what remains before this feature is
-> actually shippable, not as already-verified work.
+> wiring, `about:northgate` UI) follows Gecko conventions and the existing
+> classifier's established patterns, but it has **not been compiled** in the
+> environment it was written in: every attempt at `./mach build` there was
+> killed by that environment's memory-pressure safeguard before reaching this
+> code. The on-device decode loop is also **not implemented yet** (item 3), so
+> the feature is **disabled by default** behind
+> `browser.northgate.llmExplain.enabled` (item 6). Treat the checklist below
+> as what remains before this feature is actually shippable, not as
+> already-verified work.
 
 ## Pieces
 
@@ -26,49 +27,72 @@ classifier documented in
 | Rust inference crate (llama.cpp via `llama-cpp-2`) | `src/toolkit/components/northgate-llm/` (`src/lib.rs`, `src/engine.rs`) |
 | XPCOM interface | `nsINorthGateLLM.idl` → `@mozilla.org/northgate/llm;1`, callback `nsINorthGateLLMCallback` |
 | Vendored llama.cpp submodule | `src/toolkit/components/northgate-llm/vendor/llama.cpp` (pinned tag v0.5.0 / b11146) — **see Caveats: not actually consumed by the build yet** |
-| Download/state manager (JS ES Module) | `browser/components/northgate-browser/NorthGateLLMManager.sys.mjs` (`getState`, `ensureDownloaded`, `modelPath`, singleton `northGateLLMManager`) |
-| Actor wiring (parent/content) | `browser/components/northgate-browser/AboutNorthGateParent.sys.mjs` / `AboutNorthGateChild.sys.mjs` |
+| Download/state manager (JS ES Module) | `browser/components/northgate-browser/NorthGateLLMManager.sys.mjs` (`getState`, `getDisplayState`, `ensureDownloaded`, `modelPath`, singleton `northGateLLMManager`) |
+| Actor wiring (parent/content) | `browser/components/northgate-browser/AboutNorthGateParent.sys.mjs` / `AboutNorthGateChild.sys.mjs`, events registered in `browser/components/DesktopActorRegistry.sys.mjs` |
 | `about:northgate` UI | `browser/components/northgate-browser/content/aboutNorthGate.{html,css,js}` — "Explain with local AI" button, consent prompt, progress bar, explanation/error rendering |
+| Feature pref | `browser.northgate.llmExplain.enabled` in `browser/app/profile/000-northgate-browser.js` (default `false`) |
+
+### Page ↔ actor events
+
+Requests (page → `AboutNorthGateChild`, registered as actor events) and
+replies (child → page) deliberately use different names, so a reply can never
+re-trigger its own request:
+
+| Request (registered) | Reply (page listens) |
+|----------------------|----------------------|
+| `NorthGate:LLMState` | `NorthGate:LLMStateResult` — `{ enabled, state }` |
+| `NorthGate:LLMDownload` (`{ allowNetwork }`) | `NorthGate:LLMDownloadResult` — `{ state }` |
+| `NorthGate:LLMExplain` (`{ host }`) | `NorthGate:LLMExplainResult` — `{ ok, host, explanation \| message, siteChanged? }` |
+| — | `NorthGate:LLMProgress` — `{ fraction }` (one-way push during download) |
 
 ### Request flow
 
 ```
-user clicks "Explain with local AI"  (about:northgate)
+about:northgate loads → NorthGate:LLMState
         │
         ▼
-NorthGateLLMManager.getState()  ── not-downloaded / downloading / ready / error
+AboutNorthGateParent: pref off → { enabled: false } → section stays hidden
+                      pref on  → getDisplayState():
+                                 not-downloaded / cached-unverified / downloading / ready / error
         │
-   not-downloaded ?
-        │ yes                                         │ no (ready)
-        ▼                                              │
- consent prompt (size + behavior copy)                 │
-        │ user confirms                                │
-        ▼                                              │
- ensureDownloaded()                                     │
+user clicks "Explain with local AI"
+        │
+   ready ──────────────────────────────────────────────┐
+   cached-unverified → LLMDownload { allowNetwork:false }│  (no consent prompt; checksum
+        │    verified → ready ─────────────────────────┤   verify only, never downloads)
+        │    fails    → "not-downloaded" → consent ▼    │
+   not-downloaded → consent prompt (size + behavior)    │
+        │ user confirms                                 │
+        ▼                                               │
+ LLMDownload { allowNetwork:true } → ensureDownloaded() │
+   ├─ concurrent callers share one in-flight download   │
    ├─ disk check: existing file + checksum match? ──────┤ (adopt, skip download)
-   ├─ fetch DEFAULT_MODEL_URL (GitHub Releases)          │
-   ├─ verify SHA-256 == DEFAULT_MODEL_SHA256              │
-   │    mismatch/failure → delete partial file, error,   │
-   │    retry offered, nothing else affected              │
-   └─ write to <profile>/northgate/models/                │
-        │ success                                          │
-        ▼                                                  ▼
- NorthGate:LLMDownload / NorthGate:LLMProgress   dispatched to AboutNorthGateChild
+   ├─ fetch DEFAULT_MODEL_URL (GitHub Releases), stream │
+   │    each chunk into SHA-256 + <model>.partial        │
+   ├─ verify SHA-256 == DEFAULT_MODEL_SHA256             │
+   │    mismatch/failure → delete partial file, error,  │
+   │    retry offered, nothing else affected             │
+   └─ move into <profile>/northgate/models/              │
+        │ success                                        │
+        ▼                                                ▼
+ NorthGate:LLMExplain { host }  (page sends only the host it is displaying)
         │
         ▼
- AboutNorthGateChild → NorthGate:LLMExplain / NorthGate:LLMState events
-        │  (actor query, mirrors the classifier's existing actor pattern)
+ AboutNorthGateParent: re-runs NorthGateClassifier.classify() on the current
+   site; host mismatch → { siteChanged } and the page refreshes. Reason ids
+   are mapped to a fixed English allowlist (unknown ids dropped), so nothing
+   page-supplied reaches the prompt.
+        │
         ▼
- AboutNorthGateParent → nsINorthGateLLM.explainVerdict(
-     verdict, probability, reasons, modelPath, callback)
+ nsINorthGateLLM.explainVerdict(verdict, probability, reasons, modelPath, callback)
         │  @mozilla.org/northgate/llm;1 (Rust)
         ▼
  lib.rs: build_prompt() (northgate_llm_prompt)
-   → dispatch to background thread (moz_task::create_thread)
+   → dispatch to the shared XPCOM background thread pool
         │
         ▼
  engine::Engine::load(modelPath) + generate(prompt, max_tokens)
-   (llama.cpp: tokenize → decode/sample loop → detokenize)
+   (llama.cpp: tokenize → decode/sample loop [NOT IMPLEMENTED, returns Err] → detokenize)
         │
         ▼
  clean_response() (northgate_llm_prompt: truncate/trim)
@@ -77,24 +101,40 @@ NorthGateLLMManager.getState()  ── not-downloaded / downloading / ready / er
  callback.onResult(explanation) / onError(message)  ── back to main thread
         │
         ▼
- AboutNorthGateParent resolves actor query → AboutNorthGateChild
+ AboutNorthGateParent resolves the query → NorthGate:LLMExplainResult
         │
         ▼
- aboutNorthGate.js renders explanation text, or the generic error message
- (classifier's verdict/score elsewhere on the page is unaffected either way)
+ aboutNorthGate.js renders the explanation, or the generic error message; a
+ reply for a site no longer displayed is dropped, and switching sites clears
+ any previous explanation (the classifier's verdict/score is unaffected).
 ```
 
 ## 1. Publish the GitHub Release (Task 1 — not yet done)
 
-The model checksum (`6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e`)
-and download URL are final and already hardcoded correctly as
-`DEFAULT_MODEL_SHA256`/`DEFAULT_MODEL_URL` in `NorthGateLLMManager.sys.mjs`
-(Task 5). What's missing is the release itself: it was never published,
-blocked on this environment's permission classifier refusing `gh release
-create` even after in-chat approval. The staged model file and the exact
-`gh release create` command are noted in the plan's ledger (Task 1 entry).
-**A human must run this manually** before the download flow has anything to
-fetch.
+The model checksum and download URL are final and already hardcoded as
+`DEFAULT_MODEL_SHA256`/`DEFAULT_MODEL_URL` in `NorthGateLLMManager.sys.mjs`.
+What's missing is the release itself: it was never published (the automated
+environment was not permitted to run `gh release create`). **A human must run
+this manually** before the download flow has anything to fetch.
+
+- Asset filename: `qwen2.5-1.5b-instruct-q4_k_m.gguf` (Qwen2.5-1.5B-Instruct,
+  Q4_K_M quantization), obtained from
+  `https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf`
+- SHA-256: `6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e`
+
+From the directory containing the downloaded file:
+
+```bash
+gh release create llm-model-v1 \
+  --repo eduolihez/northgate-browser \
+  --title "NorthGate LLM model v1 (Qwen2.5-1.5B-Instruct, Q4_K_M)" \
+  --notes "Quantized GGUF model for the local alert-explanation feature. Not part of the browser installer; downloaded on demand from about:northgate." \
+  qwen2.5-1.5b-instruct-q4_k_m.gguf
+```
+
+Then confirm the published asset hashes to the SHA-256 above (e.g. download
+it from `DEFAULT_MODEL_URL` and run `sha256sum` / `certutil -hashfile ...
+SHA256`).
 
 ## 2. Reconcile the vendored llama.cpp submodule with the actual build (Task 8 gap)
 
@@ -102,41 +142,86 @@ fetch.
 audited submodule (tag v0.5.0 / commit 7fe450e), but `build.rs` does **not**
 actually point `llama-cpp-sys-2` at it — the crate currently compiles its own
 bundled copy of llama.cpp instead, so the vendored submodule is dead weight
-as committed. `build.rs`'s own doc comment (and a `cargo:warning`) spell out
-two ways to fix this:
+as committed. Because nothing consumes it yet, `build.rs` only emits a
+`cargo:warning` (not a build failure) when the submodule isn't checked out.
+`build.rs`'s own doc comment spells out two ways to fix this:
 
 - Add a `[patch.crates-io]` override so `llama-cpp-sys-2` builds against the
   vendored submodule instead of its bundled copy, or
 - Drop the submodule entirely and keep the pinned version only as a
   documentation reference.
 
-Pick one and verify it actually links on a real build — this couldn't be
-checked in this environment (see Status above).
+Pick one and verify it actually links on a real build. If the submodule ends
+up consumed, turn the missing-submodule warning back into a hard error.
 
 ## 3. Complete the decode/sample loop (Task 8 gap)
 
 `engine.rs`'s `Engine::generate()` loads the model, creates a context, and
-tokenizes the prompt correctly (cross-checked against `llama-cpp-2` 0.1.158's
-`examples/simple` at implementation time), but the actual decode/sample loop
-is an explicit, heavily-commented `todo!()`. The comment directly above it
-documents exactly what was verified and what's left. Before building: re-read
-`examples/simple` at whatever `llama-cpp-2` version is actually pinned once
-(2) above is resolved — the API has already drifted once between the
-original brief's sketch and current `main` — and replace the `todo!()` with a
-loop that respects `max_tokens` and appends decoded text to `output`.
+tokenizes the prompt (cross-checked against `llama-cpp-2` 0.1.158's
+`examples/simple` at implementation time), then returns
+`EngineError::GenerationFailed("decode loop not implemented")`. The comment
+directly above that return documents exactly what was verified and what's
+left. Before building: re-read `examples/simple` at whatever `llama-cpp-2`
+version is actually pinned once (2) above is resolved — the API has already
+drifted once between the original brief's sketch and current `main` — and
+replace the `Err` return with a loop that respects `max_tokens` and appends
+decoded text to `output`.
+
+**Never use `todo!()`, `unwrap()` on fallible llama calls, or anything else
+that can panic on this path.** Gecko builds Rust with `panic = "abort"`
+(`src/Cargo.toml`, dev and release profiles), so the `catch_unwind` in
+`lib.rs`'s `ExplainTask::run()` does **not** catch panics — a panic aborts the
+whole browser process. The only real safety property is "never panic in the
+first place": every failure must be a returned `Err`, which surfaces through
+`nsINorthGateLLMCallback.onError`.
 
 ## 4. Verify the unverified XPCOM/threading surface (Task 4 flag)
 
 `src/lib.rs` uses `moz_task::{Task, TaskRunnable, ThreadPtrHolder,
-DispatchOptions}` and `Array<AUTF8String>` across the XPIDL boundary,
-following the same shape as the existing classifier and `bitsdownload`'s
-`AsyncShutdown()` pattern for thread lifecycle. This was checked carefully by
-inspection against real in-tree source (not by compiling), per the plan's
-ledger — confirm it against this tree's actual vendored `moz_task` crate
-version on first real build, since this API surface was explicitly flagged
-in the plan as unverified.
+DispatchOptions}` (dispatching to the shared background thread pool) and
+`Array<AUTF8String>` across the XPIDL boundary, following the same shape as
+the existing classifier. This was checked carefully by inspection against
+real in-tree source (not by compiling) — confirm it against this tree's
+actual vendored `moz_task` crate version on first real build, since this API
+surface was explicitly flagged in the plan as unverified.
 
-## 5. Build & run
+## 5. Known design gaps (open, not yet addressed)
+
+These are real limitations of the current code relative to the design spec
+(`docs/superpowers/specs/2026-09-24-local-llm-runtime-design.md`):
+
+- [ ] **The 15s timeout is not preemptive.** `lib.rs` checks
+  `GENERATION_TIMEOUT_SECS` only *after* `engine.generate()` returns. It
+  cannot interrupt a hung call, and it throws away a valid-but-slow result
+  instead of truly timing out. A real timeout needs a cancellation/deadline
+  check inside the llama.cpp decode loop (item 3), e.g. checking elapsed time
+  or an `AtomicBool` between tokens.
+- [ ] **No model/backend reuse across calls.** Every `explainVerdict()`
+  reloads the ~1GB model and calls `LlamaBackend::init()` again, although the
+  spec says the model should be "cached for the process lifetime" (mirroring
+  the classifier's `OnceLock` pattern). `llama-cpp-2` allows only one live
+  `LlamaBackend` per process, so two concurrent `explainVerdict()` calls
+  (e.g. two dashboard tabs) can conflict (the second backend init fails).
+  Fix: a process-wide lazily initialized backend + model (e.g.
+  `OnceLock<Mutex<Engine>>`), serializing generation.
+- [ ] **No crash isolation.** Inference runs in the parent process. A native
+  llama.cpp assertion failure (`GGML_ASSERT` → `abort()`) or an OOM while
+  loading the model aborts the whole browser; neither `Result` nor
+  `catch_unwind` can contain a C/C++-side hard abort (and `catch_unwind`
+  doesn't even catch Rust panics here, see item 3). The spec's in-process
+  placement decision addressed input trust (the prompt only contains
+  classifier-derived data), not this crash-isolation risk. Reconsider moving
+  inference to a utility process if this shows up in crash reports.
+
+## 6. Enable the feature
+
+The UI and the parent actor's download/explain handlers are inert until
+`browser.northgate.llmExplain.enabled` is `true` (default `false`, set in
+`browser/app/profile/000-northgate-browser.js`). Flip the default only once
+items 1-3 are done and item 8 passes. For local testing, set it in
+`about:config`.
+
+## 7. Build & run
 
 ```bash
 ./mach vendor rust       # pulls llama-cpp-2 and its deps
@@ -147,43 +232,57 @@ in the plan as unverified.
 Front-end-only follow-ups (`aboutNorthGate.js`/`.css`/`.html`, actor JS)
 rebuild with `./mach build faster`.
 
-## 6. End-to-end manual verification (skipped — not performed in this task)
+xpcshell tests for the download manager:
 
-This requires a working build (items 2-5 above) and the live GitHub Release
-(item 1). Neither exists yet, so this step was **not performed** as part of
-Task 9 and is left as the final checklist item for whoever completes items
-1-5:
+```bash
+./mach test browser/components/northgate-browser/test/xpcshell/test_NorthGateLLMManager.js --headless
+```
 
-1. Fresh profile, `./mach run`, open `about:northgate` on any http(s) site.
+## 8. End-to-end manual verification (not yet performed)
+
+This requires a working build (items 2-4, 7), the decode loop (item 3), the
+live GitHub Release (item 1), and the pref enabled (item 6):
+
+1. Fresh profile, `./mach run`, set `browser.northgate.llmExplain.enabled`
+   to `true`, open `about:northgate` on any http(s) site.
 2. Click "Explain with local AI" → consent prompt appears with accurate
    size/behavior copy.
 3. Confirm → progress bar advances → model downloads into
    `<profile>/northgate/models/`.
 4. Explanation text appears, is coherent, and does not claim signals beyond
    what `ngate-reasons` already listed for that page.
-5. Restart the browser, repeat on a different site → no second download
-   (state is `ready` immediately, per `getState()`).
-6. Disconnect network entirely, repeat on a third site → explanation still
+5. Restart the browser, repeat on a different site → no consent prompt and no
+   second download: `getDisplayState()` reports `cached-unverified`, the
+   page goes straight to generating, and `ensureDownloaded({ allowNetwork:
+   false })` checksum-verifies the cached file before use.
+6. Switch to a different site and refresh the dashboard → the previous
+   explanation is cleared.
+7. Disconnect network entirely, repeat on a third site → explanation still
    generates (proves inference truly makes no network calls).
-7. Force an error (e.g., temporarily rename the cached model file) → UI
+8. Force an error (e.g., temporarily rename the cached model file) → UI
    shows the generic error message, and the classifier's verdict/score
-   elsewhere on the page is unaffected.
+   elsewhere on the page is unaffected. Corrupting the cached file instead
+   → the consent prompt reappears (the corrupt file is deleted, never used).
+9. Close the dashboard mid-download, reopen it → the download continued in
+   the background (no partial-file loss).
 
 ## Caveats
 
+- **`panic = "abort"`: `catch_unwind` is not a safety net.** See item 3.
 - **`moz_task`/`ThreadPtrHolder` API surface unverified.** Flagged in the
   plan as a known risk since Task 4; checked by inspection against real
   in-tree source, not by compiling. See item 4 above.
-- **llama.cpp decode/sample loop unfinished.** Explicit `todo!()` in
-  `engine.rs`, pending the pinned `llama-cpp-2` crate version. See item 3
-  above.
+- **llama.cpp decode/sample loop unfinished.** `generate()` returns an error
+  pending the pinned `llama-cpp-2` crate version. See item 3 above.
 - **Vendored submodule not actually consumed by the build.** `build.rs`
   documents the gap and both reconciliation options. See item 2 above.
+- **Timeout, model reuse, crash isolation.** See item 5.
 - **Process isolation deferred, by design, for this sub-project only.** The
-  LLM only ever receives the classifier's already-computed
-  verdict/probability/reasons — never raw page content or script — so no
-  extra sandboxing was built here. This does **not** carry over to any
-  future sub-project that feeds the LLM page content, script, or other
+  LLM only ever receives the classifier's already-computed verdict and
+  probability plus fixed allowlisted reason strings, derived in the parent —
+  never raw page content, script, or page-supplied text — so no extra
+  sandboxing was built here. This does **not** carry over to any future
+  sub-project that feeds the LLM page content, script, or other
   attacker-influenced input; that needs its own process-isolation and
   prompt-injection review first. See
   `docs/superpowers/specs/2026-09-24-local-llm-runtime-design.md`'s "Open
