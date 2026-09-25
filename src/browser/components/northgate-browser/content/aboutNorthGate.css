@@ -357,6 +357,10 @@ body {
   flex-direction: column;
   gap: 0.5em;
   align-items: flex-start;
+
+  &[hidden] {
+    display: none;
+  }
 }
 
 .ngate-llm-error {

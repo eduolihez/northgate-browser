@@ -1,6 +1,10 @@
 /**
  * Actor child for the about:northgate dashboard. Relays page requests to the
  * parent and forwards the resulting data back to the page as a DOM event.
+ *
+ * Replies always use a different event name than the request (e.g.
+ * NorthGate:LLMState -> NorthGate:LLMStateResult); only request names are
+ * registered for this actor, so a reply can never re-trigger a request.
  */
 export class AboutNorthGateChild extends JSWindowActorChild {
   handleEvent(event) {
@@ -13,15 +17,19 @@ export class AboutNorthGateChild extends JSWindowActorChild {
         this.#send("AboutNorthGate:ClearAlerts", "NorthGate:Data");
         break;
       case "NorthGate:LLMState":
-        this.#send("AboutNorthGate:LLMState", "NorthGate:LLMState");
+        this.#send("AboutNorthGate:LLMState", "NorthGate:LLMStateResult");
         break;
       case "NorthGate:LLMDownload":
-        this.#send("AboutNorthGate:LLMDownload", "NorthGate:LLMDownload");
+        this.#send(
+          "AboutNorthGate:LLMDownload",
+          "NorthGate:LLMDownloadResult",
+          event.detail
+        );
         break;
       case "NorthGate:LLMExplain":
         this.#send(
           "AboutNorthGate:LLMExplain",
-          "NorthGate:LLMExplain",
+          "NorthGate:LLMExplainResult",
           event.detail
         );
         break;

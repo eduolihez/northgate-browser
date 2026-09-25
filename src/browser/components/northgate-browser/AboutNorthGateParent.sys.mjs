@@ -29,6 +29,34 @@ const TRACKER_CATEGORIES = {
     Ci.nsIWebProgressListener.STATE_COOKIES_BLOCKED_SOCIALTRACKER,
 };
 
+// Gates the "Explain with local AI" feature. Off by default until the llama.cpp
+// decode loop in northgate-llm's engine.rs is implemented.
+const LLM_EXPLAIN_PREF = "browser.northgate.llmExplain.enabled";
+
+// Fixed English text for each classifier reason id, used as LLM prompt input.
+// Only these strings can ever reach the prompt; unknown ids are dropped.
+const LLM_REASON_TEXT = {
+  "ngate-reason-ip-literal": "Uses a raw IP address instead of a domain name.",
+  "ngate-reason-no-https": "Connection is not encrypted (no HTTPS).",
+  "ngate-reason-at-symbol":
+    "Contains an @ symbol, which can hide the real destination.",
+  "ngate-reason-punycode": "Uses punycode, which can imitate a trusted brand.",
+  "ngate-reason-shortener":
+    "Uses a link shortener that hides the real destination.",
+  "ngate-reason-keywords":
+    "Contains words often used to imitate logins or brands.",
+  "ngate-reason-subdomains": "Has an unusually deep chain of subdomains.",
+  "ngate-reason-long-url": "The web address is unusually long.",
+  "ngate-reason-hyphens": "The domain name uses many hyphens.",
+  "ngate-reason-random-host": "The host name looks randomly generated.",
+  "ngate-reason-risky-tld":
+    "Uses a top-level domain frequently abused for phishing.",
+};
+
+function llmExplainEnabled() {
+  return Services.prefs.getBoolPref(LLM_EXPLAIN_PREF, false);
+}
+
 // Alert when a page carries at least this many blocked trackers.
 const HEAVY_TRACKING_THRESHOLD = 10;
 // Cap on retained per-session alerts.
@@ -74,27 +102,111 @@ export class AboutNorthGateParent extends JSWindowActorParent {
         sessionAlerts.clear();
         return Promise.resolve(this.#buildPayload());
       case "AboutNorthGate:LLMState":
-        return Promise.resolve({ state: lazy.northGateLLMManager.getState() });
+        return this.#llmState();
       case "AboutNorthGate:LLMDownload":
-        return this.#downloadModel();
+        return this.#downloadModel(message.data);
       case "AboutNorthGate:LLMExplain":
         return this.#explainVerdict(message.data);
     }
     return undefined;
   }
 
-  async #downloadModel() {
+  async #llmState() {
+    if (!llmExplainEnabled()) {
+      return { enabled: false, state: "disabled" };
+    }
+    return {
+      enabled: true,
+      state: await lazy.northGateLLMManager.getDisplayState(),
+    };
+  }
+
+  /**
+   * @param {object} [data]
+   * @param {boolean} [data.allowNetwork] True only once the user has confirmed
+   *   the download consent prompt; otherwise only a cached model is accepted.
+   */
+  async #downloadModel(data) {
+    if (!llmExplainEnabled()) {
+      return { state: "disabled" };
+    }
+    const allowNetwork = data?.allowNetwork === true;
     try {
-      await lazy.northGateLLMManager.ensureDownloaded(fraction => {
-        this.sendAsyncMessage("AboutNorthGate:LLMProgress", { fraction });
-      });
+      await lazy.northGateLLMManager.ensureDownloaded(
+        fraction => {
+          try {
+            this.sendAsyncMessage("AboutNorthGate:LLMProgress", { fraction });
+          } catch (_e) {
+            // The dashboard went away; keep downloading regardless.
+          }
+        },
+        { allowNetwork }
+      );
       return { state: "ready" };
     } catch (e) {
-      return { state: "error", message: String(e) };
+      const state = lazy.northGateLLMManager.getState();
+      return {
+        state: state === "not-downloaded" ? "not-downloaded" : "error",
+        message: String(e),
+      };
     }
   }
 
-  #explainVerdict({ verdict, probability, reasons }) {
+  /**
+   * Classification of the site the dashboard currently describes, re-derived
+   * here so nothing the page sends can influence the LLM prompt.
+   *
+   * @returns {{host: string, verdict: string, probability: number,
+   *   reasons: string[]}?}
+   */
+  #currentClassificationForLLM() {
+    const browser = this.#currentSiteBrowser();
+    if (!browser) {
+      return null;
+    }
+    const uri = browser.currentURI;
+    let host = "";
+    try {
+      host = uri.host;
+    } catch (_e) {
+      host = uri.spec;
+    }
+    const { verdict, probability, reasons } = lazy.NorthGateClassifier.classify(
+      uri.spec
+    );
+    return {
+      host,
+      verdict,
+      probability,
+      reasons: reasons
+        .filter(id => Object.hasOwn(LLM_REASON_TEXT, id))
+        .map(id => LLM_REASON_TEXT[id]),
+    };
+  }
+
+  /**
+   * @param {object} [data]
+   * @param {string} [data.host] Host the page is currently displaying. Only
+   *   compared against the re-derived site, never passed to the model.
+   */
+  #explainVerdict(data) {
+    if (!llmExplainEnabled()) {
+      return Promise.resolve({ ok: false, message: "disabled" });
+    }
+    const current = this.#currentClassificationForLLM();
+    if (!current) {
+      return Promise.resolve({ ok: false, message: "no site" });
+    }
+    const { host, verdict, probability, reasons } = current;
+    if (data?.host !== host) {
+      return Promise.resolve({
+        ok: false,
+        siteChanged: true,
+        host,
+        message: "site changed",
+      });
+    }
+
     return new Promise(resolve => {
       let service;
       try {
@@ -102,7 +214,7 @@ export class AboutNorthGateParent extends JSWindowActorParent {
           Ci.nsINorthGateLLM
         );
       } catch (e) {
-        resolve({ ok: false, message: "LLM service unavailable" });
+        resolve({ ok: false, host, message: "LLM service unavailable" });
         return;
       }
 
@@ -114,12 +226,12 @@ export class AboutNorthGateParent extends JSWindowActorParent {
           lazy.northGateLLMManager.modelPath(),
           {
             QueryInterface: ChromeUtils.generateQI(["nsINorthGateLLMCallback"]),
-            onResult: explanation => resolve({ ok: true, explanation }),
-            onError: message => resolve({ ok: false, message }),
+            onResult: explanation => resolve({ ok: true, host, explanation }),
+            onError: message => resolve({ ok: false, host, message }),
           }
         );
       } catch (e) {
-        resolve({ ok: false, message: String(e) });
+        resolve({ ok: false, host, message: String(e) });
       }
     });
   }
