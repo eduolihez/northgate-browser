@@ -59,13 +59,44 @@ export class NorthGateLLMManager {
   }
 
   /**
+   * Checks for a model already on disk (e.g. from a previous session) whose
+   * checksum matches #modelSha256, adopting it as "ready" if so. A file that
+   * exists but fails the checksum is treated as absent and removed.
+   *
+   * @returns {Promise<boolean>} true if an existing on-disk model was
+   *   adopted and #state is now "ready".
+   */
+  async #adoptExistingModel() {
+    const destination = this.modelPath();
+    if (!(await IOUtils.exists(destination))) {
+      return false;
+    }
+
+    const actualHash = await sha256OfFile(destination);
+    if (actualHash !== this.#modelSha256) {
+      await IOUtils.remove(destination, { ignoreAbsent: true });
+      return false;
+    }
+
+    this.#state = "ready";
+    return true;
+  }
+
+  /**
    * Downloads and verifies the model if it is not already present. Safe to
-   * call repeatedly; a no-op once state is "ready".
+   * call repeatedly; a no-op once state is "ready". Also recognizes a model
+   * already cached on disk from a prior session (the singleton's in-memory
+   * state resets on every browser restart, but the file persists), so the
+   * model is downloaded only once per profile, per the design intent.
    *
    * @param {(fraction: number) => void} [onProgress]
    */
   async ensureDownloaded(onProgress) {
     if (this.#state === "ready" && (await IOUtils.exists(this.modelPath()))) {
+      return;
+    }
+
+    if (this.#state === "not-downloaded" && (await this.#adoptExistingModel())) {
       return;
     }
 
