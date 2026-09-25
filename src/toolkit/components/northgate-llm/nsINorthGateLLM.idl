@@ -34,7 +34,9 @@ interface nsINorthGateLLM : nsISupports {
    * @param reasons Human-readable reason strings already shown in the
    *   dashboard (not Fluent ids — resolved English/localized text).
    * @param modelPath Absolute path to the checksum-verified .gguf file.
-   * @param callback Invoked exactly once, with either onResult or onError.
+   * @param callback Invoked exactly once, with either onResult or onError,
+   *   if explainVerdict returns success. A synchronous failure return means
+   *   the callback was never invoked.
    */
   void explainVerdict(in AUTF8String verdict,
                        in double probability,

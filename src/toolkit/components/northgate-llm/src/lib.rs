@@ -5,9 +5,9 @@
 //! On-device LLM explanation service exposed to Gecko as the XPCOM service
 //! `@mozilla.org/northgate/llm;1` (`nsINorthGateLLM`).
 //!
-//! `explainVerdict()` dispatches to a dedicated background thread so
-//! inference never blocks the caller; the result is delivered back to the
-//! calling thread via `nsINorthGateLLMCallback`.
+//! `explainVerdict()` dispatches to the shared XPCOM background thread pool
+//! so inference never blocks the caller; the result is delivered back to
+//! the calling thread via `nsINorthGateLLMCallback`.
 
 #[macro_use]
 extern crate cstr;
@@ -17,8 +17,9 @@ extern crate xpcom;
 use std::ffi::c_void;
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use std::sync::Mutex;
+use std::time::{Duration, Instant};
 
-use moz_task::{Task, TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
+use moz_task::{DispatchOptions, Task, TaskRunnable, ThreadPtrHandle, ThreadPtrHolder};
 use nserror::{nsresult, NS_ERROR_FAILURE, NS_OK};
 use nsstring::{nsACString, nsCString};
 use thin_vec::ThinVec;
@@ -32,6 +33,14 @@ use engine::Engine;
 
 const MAX_RESPONSE_CHARS: usize = 800;
 const MAX_TOKENS: usize = 200;
+/// Per design spec: generation is bounded to ~15s so a slow machine never
+/// hangs the caller. The stub `Engine::generate()` returns immediately and
+/// cannot itself be preempted mid-call, so this is enforced as a deadline
+/// check around the call rather than true cancellation. Task 8 (real
+/// llama.cpp backend) should thread a cancellation/deadline check into the
+/// token-generation loop itself so a hung/slow model is actually interrupted
+/// instead of merely reported as having overrun after the fact.
+const GENERATION_TIMEOUT_SECS: u64 = 15;
 
 struct ExplainTask {
     verdict: Verdict,
@@ -42,14 +51,20 @@ struct ExplainTask {
 
 impl Task for ExplainTask {
     fn run(&self) {
-        // Runs on the dedicated background thread.
+        // Runs on the shared background thread pool.
         let outcome = catch_unwind(AssertUnwindSafe(|| {
             let engine = Engine::load(&self.model_path)
                 .map_err(|e| format!("model load failed: {e:?}"))?;
             let prompt = build_prompt(&self.verdict);
+            let deadline_start = Instant::now();
             let raw = engine
                 .generate(&prompt, MAX_TOKENS)
                 .map_err(|e| format!("generation failed: {e:?}"))?;
+            if deadline_start.elapsed() > Duration::from_secs(GENERATION_TIMEOUT_SECS) {
+                return Err(format!(
+                    "generation exceeded {GENERATION_TIMEOUT_SECS}s timeout"
+                ));
+            }
             Ok(clean_response(&raw, MAX_RESPONSE_CHARS))
         }))
         .unwrap_or_else(|_| Err("panic during inference".to_string()));
@@ -125,8 +140,14 @@ impl NorthGateLLM {
             result: Mutex::new(None),
         };
 
-        let thread = moz_task::create_thread("NorthGateLLM")?;
-        TaskRunnable::new("NorthGateLLM::ExplainTask", Box::new(task))?.dispatch(&thread)?;
+        // Dispatch to the shared XPCOM background thread pool rather than a
+        // dedicated per-call thread: a thread created via
+        // `moz_task::create_thread` keeps running (leaking the OS thread)
+        // until explicitly shut down, and nothing here ever shuts it down.
+        // Inference blocks on CPU/model-file I/O, so mark it `may_block` per
+        // `DispatchOptions::may_block`'s doc comment.
+        TaskRunnable::new("NorthGateLLM::ExplainTask", Box::new(task))?
+            .dispatch_background_task_with_options(DispatchOptions::new().may_block(true))?;
         Ok(())
     }
 }
