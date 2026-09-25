@@ -1,0 +1,44 @@
+/* This Source Code Form is subject to the terms of the Mozilla Public
+ * License, v. 2.0. If a copy of the MPL was not distributed with this
+ * file, You can obtain one at http://mozilla.org/MPL/2.0/. */
+
+#include "nsISupports.idl"
+
+/**
+ * Callback for the result of an asynchronous nsINorthGateLLM.explainVerdict()
+ * call. Invoked on the same thread that called explainVerdict() (the main
+ * thread, in practice).
+ */
+[scriptable, uuid(e1a2b3c4-5d6e-4f70-8192-a3b4c5d6e7f8)]
+interface nsINorthGateLLMCallback : nsISupports {
+  void onResult(in AUTF8String explanation);
+  void onError(in AUTF8String message);
+};
+
+/**
+ * Local, on-device natural-language explanation of a phishing classifier
+ * verdict. Backed by a small quantized LLM (llama.cpp) loaded from a model
+ * file already downloaded and checksum-verified by
+ * NorthGateLLMManager.sys.mjs. Never makes network requests itself.
+ *
+ * Generation runs on a background thread; this call returns immediately and
+ * the result arrives via the callback. Never part of the navigation-blocking
+ * path — callers must treat failure as "no explanation available", not as a
+ * reason to change the classifier's verdict.
+ */
+[scriptable, uuid(f2b3c4d5-6e7f-4081-92a3-b4c5d6e7f8a9)]
+interface nsINorthGateLLM : nsISupports {
+  /**
+   * @param verdict "safe" | "suspicious" | "dangerous"
+   * @param probability Estimated phishing probability, 0..1.
+   * @param reasons Human-readable reason strings already shown in the
+   *   dashboard (not Fluent ids — resolved English/localized text).
+   * @param modelPath Absolute path to the checksum-verified .gguf file.
+   * @param callback Invoked exactly once, with either onResult or onError.
+   */
+  void explainVerdict(in AUTF8String verdict,
+                       in double probability,
+                       in Array<AUTF8String> reasons,
+                       in AUTF8String modelPath,
+                       in nsINorthGateLLMCallback callback);
+};
