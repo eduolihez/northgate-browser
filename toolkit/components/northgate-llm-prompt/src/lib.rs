@@ -38,6 +38,30 @@ pub fn build_prompt(verdict: &Verdict) -> String {
     )
 }
 
+/// Strip common chat-model artifacts (role labels, leading/trailing
+/// whitespace) and cap length so a runaway generation can't produce an
+/// unbounded string for the UI to render.
+pub fn clean_response(raw: &str, max_chars: usize) -> String {
+    let trimmed = raw.trim();
+    let without_label = trimmed
+        .strip_prefix("Assistant:")
+        .or_else(|| trimmed.strip_prefix("assistant:"))
+        .map(str::trim)
+        .unwrap_or(trimmed);
+
+    if without_label.chars().count() <= max_chars {
+        return without_label.to_string();
+    }
+
+    let target_chars = max_chars.saturating_sub(2);
+    let mut truncated: String = without_label.chars().take(target_chars).collect();
+    if let Some(last_space) = truncated.rfind(' ') {
+        truncated.truncate(last_space);
+    }
+    truncated.push('…');
+    truncated
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -69,5 +93,26 @@ mod tests {
         let prompt = build_prompt(&verdict);
         assert!(prompt.contains("safe"));
         assert!(prompt.contains("no specific suspicious traits"));
+    }
+
+    #[test]
+    fn trims_whitespace_and_leading_labels() {
+        let raw = "  \n\nAssistant: This address looks dangerous because...\n";
+        let cleaned = clean_response(raw, 500);
+        assert_eq!(cleaned, "This address looks dangerous because...");
+    }
+
+    #[test]
+    fn truncates_to_max_chars_on_a_word_boundary() {
+        let raw = "This is a very long explanation that keeps going and going and going past the limit.";
+        let cleaned = clean_response(raw, 20);
+        assert!(cleaned.len() <= 21); // allow the trailing ellipsis character
+        assert!(cleaned.ends_with('…'));
+        assert!(!cleaned.contains("  "));
+    }
+
+    #[test]
+    fn returns_empty_string_unchanged() {
+        assert_eq!(clean_response("", 500), "");
     }
 }
