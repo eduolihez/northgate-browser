@@ -2,9 +2,9 @@
 
 # NorthGate Browser
 
-**A privacy-first web browser with on-device, AI-powered phishing protection.**
+**Un navegador centrado en la privacidad, con protección anti-phishing en el propio dispositivo.**
 
-Built on [Mullvad Browser](https://mullvad.net/browser) and Firefox, hardened for privacy, and extended with a fully local phishing classifier that never sends your browsing anywhere.
+Construido sobre [Mullvad Browser](https://mullvad.net/browser) y Firefox, endurecido para la privacidad y ampliado con un clasificador de phishing totalmente local que nunca manda tu navegación a ninguna parte.
 
 [![Build NorthGate](https://github.com/eduolihez/northgate-browser/actions/workflows/build.yml/badge.svg)](https://github.com/eduolihez/northgate-browser/actions/workflows/build.yml)
 [![License: MPL 2.0](https://img.shields.io/badge/License-MPL_2.0-brightgreen.svg)](https://www.mozilla.org/MPL/2.0/)
@@ -13,24 +13,29 @@ Built on [Mullvad Browser](https://mullvad.net/browser) and Firefox, hardened fo
 ![Inference](https://img.shields.io/badge/inference-100%25%20on--device-success)
 ![ML](https://img.shields.io/badge/ML-ONNX%20Runtime-orange)
 
+### **[Versión en Español](README.md)** · [English version](README.en.md)
+
 </div>
 
 ---
 
-## Overview
+## Resumen
 
-NorthGate is a security-focused fork that keeps the privacy posture of Mullvad Browser (Firefox ESR + Tor Browser hardening) and adds a small, transparent machine-learning layer that flags likely phishing sites **before** you land on them. Every part of the detection pipeline runs on your device: the model is compiled into the binary, and scoring makes **zero network requests**.
+NorthGate es un fork orientado a seguridad que mantiene la postura de privacidad de Mullvad Browser (Firefox ESR más el endurecimiento de Tor Browser) y añade una capa pequeña de machine learning que marca los sitios que parecen phishing antes de que llegues a ellos. Toda la tubería de detección corre en tu dispositivo: el modelo va compilado dentro del binario y la puntuación no hace ninguna petición de red.
 
-## Highlights
+## Qué añade
 
-- **On-device phishing detection.** A tree-ensemble model exported to ONNX scores each top-level navigation from lexical URL features alone. Inference runs locally using `tract-onnx` in pure Rust with **zero external binary dependencies** and zero network requests.
-- **Navigation guard with a friendly escape hatch.** High-risk pages are intercepted and replaced with a clear warning interstitial (`about:northgate-blocked`) that lets you go back, proceed temporarily, or **permanently trust the website** via a persistent whitelist checkbox.
-- **Dynamic Sensitivity Slider.** The active classification threshold scales dynamically with the browser's Security Level Slider settings (`Standard`, `Safer`, or `Safest`).
-- **Privacy & security dashboard.** `about:northgate` shows the current site's privacy score, trackers blocked (by category), the classifier's verdict with a structured, detailed explanation card, and a per-session alert history.
-- **Inherited hardening.** Anti-fingerprinting, always-private browsing, zero telemetry, and DNS leak protection from Mullvad/Tor Browser (see [Privacy & threat model](#privacy--threat-model)).
-- **Reproducible ML pipeline.** Dataset collection, feature engineering, training, and ONNX export are all scripted and documented under [`ml-model/`](ml-model/).
+Un modelo de ensemble de árboles exportado a ONNX puntúa cada navegación de nivel superior usando solo características léxicas de la URL. La inferencia corre en local a través de `tract-onnx`, en Rust puro, sin dependencias binarias externas y sin llamadas de red.
 
-## How it works
+Cuando una página puntúa como de alto riesgo, el guardián de navegación la intercepta y muestra un intersticial de aviso en `about:northgate-blocked`. Desde ahí puedes volver atrás, continuar una vez, o marcar una casilla para confiar en el sitio de forma permanente, lo que lo añade a una lista blanca persistente. El umbral de clasificación no es fijo: escala con el deslizador de nivel de seguridad del navegador (`Standard`, `Safer` o `Safest`).
+
+`about:northgate` es el panel de privacidad y seguridad. Muestra la puntuación de privacidad del sitio actual, los rastreadores bloqueados desglosados por categoría, el veredicto del clasificador con una tarjeta de explicación detallada, y el historial de alertas de la sesión.
+
+De Mullvad y Tor Browser, NorthGate hereda el anti-fingerprinting, la navegación siempre privada, la telemetría a cero y la protección contra fugas de DNS. Ver [Privacidad y modelo de amenazas](#privacidad-y-modelo-de-amenazas) más abajo.
+
+La parte de ML es reproducible: la recogida del dataset, la ingeniería de características, el entrenamiento y la exportación a ONNX están todos escritos en scripts y documentados en [`ml-model/`](ml-model/).
+
+## Cómo funciona
 
 ```mermaid
 flowchart LR
@@ -44,27 +49,31 @@ flowchart LR
     C --> H[about:northgate<br/>privacy dashboard]
 ```
 
-The classifier is trained offline from public phishing feeds (PhishTank, OpenPhish) and legitimate top sites (Tranco), using only features that can be computed from a URL string with no network access — URL length, entropy, IP-literal host, subdomain depth, HTTPS, suspicious keywords, and more.
+El clasificador se entrena offline a partir de feeds públicos de phishing (PhishTank, OpenPhish) y sitios legítimos de cabecera (Tranco). Solo usa características que se pueden calcular desde una cadena de URL sin tocar la red: longitud de la URL, entropía, host que es una IP literal, profundidad de subdominios, HTTPS, palabras clave sospechosas y alguna más.
 
-## Privacy & threat model
+## Privacidad y modelo de amenazas
 
-NorthGate inherits the hardening of Mullvad/Tor Browser (Base Browser):
+NorthGate hereda el endurecimiento de Mullvad y Tor Browser (Base Browser).
 
-- **Anti-fingerprinting.** Resist Fingerprinting (RFP) is on and locked in release builds — spoofed user agent, UTC timezone, letterboxed screen size, bundled-font whitelist, and canvas/WebGL readback poisoning. WebGL2, WebGPU, and offscreen canvas are disabled. The goal is a large shared anonymity set.
-- **Always private browsing.** Permanent PBM with disk cache, history, saved passwords, and cert history disabled to minimize local forensic traces.
-- **Zero telemetry.** Telemetry disabled and locked, client/profile IDs pinned to canary values; Normandy/Shield/Nimbus, Safe Browsing, and crash reporting are off.
-- **Leak protection.** DNS-over-HTTPS in TRR-only mode with no plaintext fallback; proxy-bypass locked off. NorthGate does **not** ship Tor and does not hide your IP by itself — it hardens the client and expects to run behind Mullvad VPN or a trusted tunnel.
-- **Bundled, non-removable extensions.** uBlock Origin and NoScript are shipped and cannot be uninstalled; NoScript is driven by the Security Level slider.
+Resist Fingerprinting está activo y bloqueado en las builds de release, lo que significa user agent falseado, zona horaria UTC, tamaño de pantalla con letterboxing, una lista blanca de fuentes incluidas, y envenenamiento de la lectura de canvas y WebGL. WebGL2, WebGPU y el canvas fuera de pantalla están desactivados. La idea es mantener grande el conjunto de anonimato.
 
-The full inventory of controls — what each mitigates and what it explicitly does **not** protect against — is in [`src/THREAT_MODEL.md`](src/THREAT_MODEL.md).
+La navegación privada es permanente, con la caché en disco, el historial, las contraseñas guardadas y el historial de certificados desactivados, para minimizar los rastros forenses locales. La telemetría está desactivada y bloqueada, los identificadores de cliente y de perfil están fijados a valores canario, y Normandy/Shield/Nimbus, Safe Browsing y el reporte de fallos están todos apagados.
 
-### On-device ML privacy commitments
+Para la protección contra fugas, DNS-over-HTTPS corre en modo TRR-only sin fallback en texto plano, y el bypass del proxy está bloqueado. NorthGate no incluye Tor y no oculta tu IP por sí mismo. Endurece el cliente y espera correr detrás de Mullvad VPN o de un túnel de confianza.
 
-- **No network calls from the model.** The ONNX model is embedded in the binary; the ONNX Runtime is linked without any dynamic download, and scoring is entirely local.
-- **No sensitive data retained.** The alert history stores hostnames only — never full URLs (which can carry session tokens) — and records nothing from private-browsing windows.
-- **Fails safe.** If the classifier is ever unavailable, the navigation guard allows the load: it can never block or break normal browsing.
+uBlock Origin y NoScript vienen con el navegador y no se pueden desinstalar. El deslizador de nivel de seguridad controla NoScript.
 
-## Repository layout
+[`src/THREAT_MODEL.md`](src/THREAT_MODEL.md) tiene el inventario completo de controles, con qué mitiga cada uno y contra qué no protege explícitamente.
+
+### Qué hace y qué no hace el modelo local
+
+El modelo ONNX va embebido en el binario y el ONNX Runtime se enlaza sin ninguna descarga dinámica, así que la puntuación nunca sale de tu máquina.
+
+El historial de alertas guarda solo nombres de host, nunca URLs completas, que pueden llevar tokens de sesión. No registra nada de las ventanas de navegación privada.
+
+Si el clasificador no está disponible en algún momento, el guardián de navegación deja pasar la carga. Nunca puede bloquear ni romper la navegación normal.
+
+## Estructura del repositorio
 
 ```
 northgate-browser/
@@ -81,9 +90,9 @@ northgate-browser/
 └── README.md
 ```
 
-## Building from source
+## Compilar desde el código fuente
 
-The browser lives in [`src/`](src/); all build commands run from there.
+El navegador vive en [`src/`](src/), y todos los comandos de build se lanzan desde ahí.
 
 ```bash
 cd src
@@ -92,27 +101,29 @@ cd src
 ./mach run                                       # launch NorthGate
 ```
 
-Front-end-only changes can use `./mach build faster`. The Rust ONNX component has additional setup — see [`src/toolkit/components/northgate/INTEGRATION.md`](src/toolkit/components/northgate/INTEGRATION.md).
+Los cambios que solo tocan el front-end pueden usar `./mach build faster`. El componente ONNX en Rust necesita configuración adicional, documentada en [`src/toolkit/components/northgate/INTEGRATION.md`](src/toolkit/components/northgate/INTEGRATION.md).
 
-## Continuous integration & releases
+## Integración continua y releases
 
-The [build workflow](.github/workflows/build.yml) builds NorthGate for **Linux, Windows, and macOS** on every push to `main` and on demand. Pushing a version tag publishes packaged builds to **Releases**:
+El [workflow de build](.github/workflows/build.yml) compila NorthGate para Linux, Windows y macOS en cada push a `main` y a demanda. Publicar una etiqueta de versión sube las builds empaquetadas a Releases:
 
 ```bash
 git tag v0.1.0
 git push origin v0.1.0
 ```
 
-> A full Firefox-class build is resource-heavy and typically needs a large or self-hosted runner to complete reliably on CI. See the caveats in the workflow file.
+> Una compilación completa del tamaño de Firefox consume muchos recursos y normalmente necesita un runner grande o autoalojado para terminar de forma fiable en CI. Mira las advertencias en el archivo del workflow.
 
-## Roadmap
+## Hoja de ruta
 
-- **Phase 1 — Rebranding.** Mullvad Browser assets, paths, settings, locales, and identifiers rebranded to NorthGate. _Done._
-- **Phase 2 — On-device AI security.** Phishing dataset pipeline, ONNX classifier, `about:northgate` dashboard, and navigation guard. _In progress (model integration pending a full build)._
-- **Phase 3 — Blue-team tooling.** Local script analysis, network diagnostics, and richer alerting.
+Fase 1, rebranding: los recursos, rutas, ajustes, locales e identificadores de Mullvad Browser pasados a NorthGate. *Hecho.*
 
-## Credits & license
+Fase 2, seguridad con IA en local: tubería del dataset de phishing, clasificador ONNX, panel `about:northgate` y guardián de navegación. *En curso; la integración del modelo está pendiente de una compilación completa.*
 
-NorthGate builds on the work of [Mozilla Firefox](https://www.mozilla.org/firefox/), the [Tor Project](https://www.torproject.org/), and [Mullvad](https://mullvad.net/). It is distributed under the **Mozilla Public License 2.0** — see [`LICENSE`](LICENSE) and [`src/NOTICE`](src/NOTICE). Upstream licenses and attribution are retained throughout `src/`.
+Fase 3, herramientas de blue team: análisis local de scripts, diagnóstico de red y alertas más ricas.
 
-This project is not affiliated with or endorsed by Mozilla, the Tor Project, or Mullvad.
+## Créditos y licencia
+
+NorthGate se apoya en el trabajo de [Mozilla Firefox](https://www.mozilla.org/firefox/), el [Proyecto Tor](https://www.torproject.org/) y [Mullvad](https://mullvad.net/). Se distribuye bajo la Mozilla Public License 2.0, ver [`LICENSE`](LICENSE) y [`src/NOTICE`](src/NOTICE). Las licencias y atribuciones de upstream se mantienen por todo `src/`.
+
+Este proyecto no está afiliado a Mozilla, el Proyecto Tor ni Mullvad, ni respaldado por ellos.

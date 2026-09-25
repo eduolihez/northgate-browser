@@ -1,0 +1,34 @@
+NorthGate — avisos de licencia y atribucion
+===========================================
+
+El archivo LICENSE de este repositorio contiene el texto integro de la Mozilla
+Public License 2.0. Este NOTICE recoge las precisiones que antes vivian en
+LICENSE y que GitHub no sabia interpretar (marcaba el repositorio como
+"NOASSERTION", es decir, sin licencia reconocida).
+
+
+Codigo vendored
+---------------
+
+Vease el archivo src/toolkit/content/license.html para las condiciones de
+copyright que acompanan al codigo vendored de Firefox / Mullvad Browser bajo
+src/, incluidas las copias de las licencias correspondientes.
+
+
+Aportaciones propias de NorthGate
+---------------------------------
+
+Las aportaciones propias de NorthGate sobre ese codigo base (incluyendo, entre
+otros, ml-model/, docs/ y los parches especificos de NorthGate bajo src/) se
+publican bajo la Mozilla Public License 2.0 (MPL-2.0), en coherencia con
+upstream: https://www.mozilla.org/MPL/2.0/
+
+
+Marcas registradas
+------------------
+
+No se conceden derechos ni licencias sobre las marcas de Mozilla Foundation,
+Mullvad ni de ninguna otra parte, incluyendo sin limitacion los nombres o
+logotipos de Firefox o Mullvad Browser.
+
+Mas informacion: http://www.mozilla.org/foundation/licensing.html

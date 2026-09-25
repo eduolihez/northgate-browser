@@ -1,0 +1,34 @@
+# ===========================================================================
+#  Dependabot — NorthGate
+#
+#  POR QUE ESTE ARCHIVO ES TAN CORTO: este repositorio es un fork de
+#  Firefox / Mullvad Browser, asi que bajo src/ hay miles de manifests npm
+#  que NO son nuestros (src/third_party/webkit/PerformanceTests/Speedometer*,
+#  los benchmarks de WebKit, las herramientas de build de Mozilla...).
+#
+#  Los "security updates" de Dependabot recorren ese arbol entero y abrian
+#  pull requests para dependencias de benchmarks que ni siquiera se compilan
+#  en el navegador final: llegaron a acumularse 17 a la vez. Esas alertas se
+#  resuelven rebasando contra upstream, no fusionando parches sueltos en un
+#  fork. Por eso los security updates estan desactivados en los ajustes del
+#  repositorio y aqui solo se declara lo que si es nuestro.
+#
+#  Si algun dia ml-model/ incorpora un requirements.txt propio, este es el
+#  sitio donde anadir su bloque "pip".
+# ===========================================================================
+version: 2
+
+updates:
+  # --- GitHub Actions (.github/workflows/) --------------------------------
+  # Lo unico que mantenemos nosotros: build.yml y pr-handler.yml.
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+    commit-message:
+      prefix: "ci"
+    groups:
+      actions:
+        patterns:
+          - "*"
